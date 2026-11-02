@@ -61,8 +61,10 @@ The notes in these screenshots are made up.
 - Conflict detection through `ETag` and `If-Match`
 - Keeps BOMs and Windows line endings, and refuses files that are not UTF-8
 - Pin files to the top of their folder and to a Pinned section on the home screen (pins are stored in that browser)
-- Contents sheet built from the note's headings, with jumps to the top and bottom
+- Contents sheet built from the note's headings, with jumps to the top and bottom (opens by itself on notes with 5 or more headings)
 - Colored headings that are display only, so nothing is added to the file
+- Undo and redo buttons that also survive closing the tab, for when a whole block gets deleted by mistake
+- Mark several spots in a note and jump back to any of them (marks follow their line as you edit, and are stored in that browser)
 - Each note reopens where you left it, and every folder and note has its own URL
 
 ## Setup
