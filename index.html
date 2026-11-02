@@ -58,6 +58,18 @@
   #list-screen header { padding-inline-end: 4px; }
   #edit-screen header { padding-inline-end: 4px; }
   #status { padding-inline-end: 4px; }
+  /* One line only, so the header keeps its height and the note never shifts when undo appears mid-typing. */
+  #edit-title { display: block; white-space: nowrap; text-overflow: ellipsis; }
+  #edit-screen .titles { min-width: 64px; }
+  .note-action {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    padding: 0;
+    color: var(--muted);
+    border: 0;
+  }
   #list-screen .titles { padding-inline-start: 12px; }
   #list-back:not([hidden]) + .titles { padding-inline-start: 0; }
   .titles { flex: 1; min-width: 0; }
@@ -93,7 +105,15 @@
     border-radius: 8px;
   }
   .back svg { width: 24px; height: 24px; margin-inline-start: -2px; }
-  #status { flex: none; font-size: 0.875rem; color: var(--muted); }
+  #status {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 0.875rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   #status[data-tone="warn"] { color: var(--warn); font-weight: 600; }
 
   button {
@@ -217,6 +237,16 @@
   }
   #editor::selection { background: rgb(58 169 159 / 0.35); }
   #painted div { min-height: 1lh; }
+  #painted div[data-marked] { position: relative; }
+  #painted div[data-marked]::before {
+    content: "";
+    position: absolute;
+    inset-block: 4px;
+    inset-inline-start: -10px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
   .h1 { color: #D0A215; }
   .h2 { color: #3AA99F; }
   .h3 { color: #879A39; }
@@ -249,6 +279,7 @@
     border-start-start-radius: 16px;
     border-start-end-radius: 16px;
   }
+  #toc:focus { outline: none; }
   #toc::backdrop { background: rgb(0 0 0 / 0.5); }
   #toc-bar {
     position: sticky;
@@ -257,12 +288,22 @@
     display: flex;
     align-items: center;
     padding-block: 4px;
-    padding-inline: 16px 4px;
+    padding-inline: 4px;
     background: var(--sheet);
   }
+  #toc-bar #mark-here {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: auto;
+    margin-inline-end: auto;
+    padding-inline: 12px;
+    color: var(--accent);
+  }
   #toc h2 {
-    flex: 1;
     margin: 0;
+    padding-block: 8px 4px;
+    padding-inline: 16px;
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--muted);
@@ -276,13 +317,18 @@
   }
   #toc-bar button:active { background: var(--line); }
   #toc-empty { margin: 0; padding: 4px 16px 24px; color: var(--muted); }
-  #toc-list { margin: 0; padding: 0 0 12px; list-style: none; }
-  #toc-list button {
+  .toc-rows { margin: 0; padding: 0 0 12px; list-style: none; }
+  #marks-list { padding-block-end: 0; }
+  #marks-list li { display: flex; }
+  .toc-rows .mark-go { flex: 1; min-width: 0; }
+  .toc-rows .mark-go small { display: block; font-size: 0.8125rem; color: var(--muted); }
+  .toc-rows .mark-remove { flex: none; display: grid; place-items: center; width: 44px; padding: 0; color: var(--muted); }
+  .toc-rows button {
     display: block;
     width: 100%;
     min-height: 44px;
     padding-block: 10px;
-    padding-inline: calc(16px + var(--depth) * 16px) 16px;
+    padding-inline: calc(16px + var(--depth, 0) * 16px) 16px;
     font-weight: 400;
     line-height: 1.35;
     text-align: start;
@@ -291,12 +337,12 @@
     border: 0;
     border-radius: 0;
   }
-  #toc-list button[aria-current] { background: var(--line); }
-  #toc-list button:active { background: var(--line); }
+  .toc-rows button[aria-current] { background: var(--line); }
+  .toc-rows button:active { background: var(--line); }
 
   @media (hover: hover) {
-    .back:hover, .rows a:hover, .pin:hover, #new-file:hover, #toc-open:hover { background: var(--pressed); }
-    #toc-list button:hover, #toc-bar button:hover { background: var(--line); }
+    .back:hover, .rows a:hover, .pin:hover, #new-file:hover, #toc-open:hover, .note-action:hover { background: var(--pressed); }
+    .toc-rows button:hover, #toc-bar button:hover { background: var(--line); }
   }
   @media (prefers-reduced-motion: no-preference) {
     button:not(:disabled), .back { transition: scale 150ms ease-out; }
@@ -320,7 +366,7 @@
     @keyframes from-right { from { translate: 100% 0; } }
     @keyframes to-right { to { translate: 100% 0; } }
     @keyframes from-left { from { translate: -30% 0; } }
-    #toc-list button:active { scale: none; }
+    .toc-rows button:active { scale: none; }
     #toc[open] {
       transition: translate 200ms cubic-bezier(0.32, 0.72, 0, 1);
       @starting-style { translate: 0 100%; }
@@ -339,6 +385,10 @@
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
   <symbol id="i-toc" viewBox="0 0 24 24"><path d="M16 12H3"/><path d="M16 18H3"/><path d="M16 6H3"/><path d="M21 12h.01"/><path d="M21 18h.01"/><path d="M21 6h.01"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/><path d="M12 7v6"/><path d="M15 10H9"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
   <symbol id="i-top" viewBox="0 0 24 24"><path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/></symbol>
   <symbol id="i-bottom" viewBox="0 0 24 24"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
@@ -379,6 +429,8 @@
       <small id="edit-where" class="where"></small>
     </div>
     <span id="status" role="status"></span>
+    <button id="undo" class="note-action" type="button" aria-label="Undo" hidden><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg></button>
+    <button id="redo" class="note-action" type="button" aria-label="Redo" hidden><svg class="icon" aria-hidden="true"><use href="#i-redo"/></svg></button>
     <button id="toc-open" type="button" aria-label="Contents" aria-haspopup="dialog" hidden><svg class="icon" aria-hidden="true"><use href="#i-toc"/></svg></button>
   </header>
   <section id="conflict" role="alert" hidden>
@@ -395,19 +447,26 @@
       <textarea id="editor" aria-labelledby="edit-title" autocapitalize="sentences" spellcheck="false" disabled></textarea>
     </div>
   </div>
-  <dialog id="toc" closedby="any" aria-labelledby="toc-heading">
+  <dialog id="toc" closedby="any" aria-label="Marks and contents" tabindex="-1">
     <div id="toc-bar">
-      <h2 id="toc-heading">Contents</h2>
+      <button id="mark-here" type="button"><svg class="icon" aria-hidden="true"><use href="#i-mark"/></svg>Mark this spot</button>
       <button id="go-top" type="button" aria-label="Go to top"><svg class="icon" aria-hidden="true"><use href="#i-top"/></svg></button>
       <button id="go-bottom" type="button" aria-label="Go to bottom"><svg class="icon" aria-hidden="true"><use href="#i-bottom"/></svg></button>
     </div>
+    <section id="marks-section" aria-labelledby="marks-heading" hidden>
+      <h2 id="marks-heading">Marks</h2>
+      <ul id="marks-list" class="toc-rows"></ul>
+    </section>
+    <h2>Contents</h2>
     <p id="toc-empty" hidden>No headings yet. Start a line with # to add one.</p>
-    <ul id="toc-list"></ul>
+    <ul id="toc-list" class="toc-rows"></ul>
   </dialog>
 </main>
 
 <script type="module">
 import { parseHeadings } from "/headings.js";
+import { createHistory, hashText, record, redo, undo } from "/history.js";
+import { followEdit, relocate } from "/marks.js";
 
 const SAVE_DELAY_MS = 800;
 const JUMP_GAP_PX = 12;
@@ -415,6 +474,8 @@ const END_GAP_PX = 48;
 const FLY_MS = 180;
 const CONTENT_WAIT_MS = 250;
 const SCROLL_DELAY_MS = 200;
+const HISTORY_DELAY_MS = 500;
+const MIN_HEADINGS_TO_AUTO_OPEN = 5;
 const DRAFT_DELAY_MS = 250;
 const POLL_MS = 3000;
 const OFFLINE_HELP = "Check that the PC is on and Tailscale is connected, then pull down to reload.";
@@ -717,6 +778,11 @@ function paintNote() {
   $("painted").insertBefore(batch, after);
   lineEls = [...lineEls.slice(0, head), ...fresh, ...lineEls.slice(lineEls.length - tail)];
   paintedLines = lines;
+  if (doc?.marks.length) {
+    const followed = followEdit(doc.marks, head, gone.length, fresh.length, lines);
+    if (followed !== doc.marks) setMarks(doc, followed);
+    else showMarksInNote(doc);
+  }
 
   const next = parseHeadings(text).map((heading) => ({ ...heading, el: lineEls[heading.line] }));
   const colored = new Set(next.map(({ el }) => el));
@@ -730,9 +796,177 @@ function setEditorText(text) {
   paintNote();
 }
 
+// ---- Undo and redo, kept per note on this phone so they survive Android closing the tab ----
+
+let historyTimer = 0;
+const historyKey = (current) => `undo:${current.draftKey.slice("draft:".length)}`;
+
+function showUndoButtons(history) {
+  $("undo").hidden = !history?.done.length;
+  $("redo").hidden = !history?.undone.length;
+}
+
+function keepHistory(current) {
+  clearTimeout(historyTimer);
+  if (!current?.history) return;
+  const { done, undone, text } = current.history;
+  try {
+    if (done.length || undone.length) localStorage.setItem(historyKey(current), JSON.stringify({ done, undone, hash: hashText(text) }));
+    else localStorage.removeItem(historyKey(current));
+  } catch {}
+}
+
+function loadHistory(current) {
+  const history = createHistory(editor.value);
+  try {
+    const saved = JSON.parse(localStorage.getItem(historyKey(current)));
+    // Steps saved against other text would restore into the wrong place.
+    if (saved?.hash === hashText(editor.value)) Object.assign(history, { done: saved.done, undone: saved.undone });
+  } catch {}
+  current.history = history;
+  showUndoButtons(history);
+}
+
+function trackChange(options) {
+  if (!doc?.history) return;
+  record(doc.history, editor.value, Date.now(), options);
+  showUndoButtons(doc.history);
+  clearTimeout(historyTimer);
+  const current = doc;
+  historyTimer = setTimeout(() => keepHistory(current), HISTORY_DELAY_MS);
+}
+
+function applyHistoryStep(step) {
+  if (!doc?.history) return;
+  const change = step(doc.history);
+  if (!change) return;
+  editor.setRangeText(change.text, change.start, change.end, "end");
+  editor.setSelectionRange(change.caret, change.caret);
+  noteChanged();
+  showUndoButtons(doc.history);
+  keepHistory(doc);
+  // The change may be far from where the reader is, and it has to be seen to be trusted.
+  const note = $("note");
+  const el = lineEls[editor.value.slice(0, change.start).split("\n").length - 1];
+  const onScreen = el.offsetTop >= note.scrollTop && el.offsetTop < note.scrollTop + note.clientHeight - el.offsetHeight;
+  if (!onScreen) flyTo(el.offsetTop - note.clientHeight / 3);
+}
+
+for (const [id, step] of [["undo", undo], ["redo", redo]]) {
+  // Keeping focus in the note keeps the phone's keyboard open.
+  $(id).addEventListener("mousedown", (event) => event.preventDefault());
+  $(id).addEventListener("click", () => applyHistoryStep(step));
+}
+
+// The browser's own history is wiped by this page's text updates, and then it stops announcing undo and redo at all.
+editor.addEventListener("keydown", (event) => {
+  if (!event.ctrlKey && !event.metaKey) return;
+  const key = event.key.toLowerCase();
+  const isRedo = key === "y" || (key === "z" && event.shiftKey);
+  if (key !== "z" && !isRedo) return;
+  event.preventDefault();
+  applyHistoryStep(isRedo ? redo : undo);
+});
+editor.addEventListener("beforeinput", (event) => {
+  if (event.inputType !== "historyUndo" && event.inputType !== "historyRedo") return;
+  event.preventDefault();
+  applyHistoryStep(event.inputType === "historyUndo" ? undo : redo);
+});
+
+// ---- Marks, kept per note on this phone ----
+
+let markedEls = [];
+let markTarget = 0;
+const marksKey = (current) => `marks:${current.draftKey.slice("draft:".length)}`;
+
+function showMarksInNote(current) {
+  for (const el of markedEls) el.removeAttribute("data-marked");
+  markedEls = current.marks.map(({ line }) => lineEls[line]);
+  for (const el of markedEls) el.setAttribute("data-marked", "");
+}
+
+function setMarks(current, marks) {
+  current.marks = marks;
+  showMarksInNote(current);
+  try { localStorage.setItem(marksKey(current), JSON.stringify(marks)); } catch {}
+}
+
+function loadMarks(current) {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(marksKey(current))) ?? []; } catch {}
+  setMarks(current, relocate(saved, paintedLines));
+}
+
+// The line being edited, or the top of the screen when the caret is somewhere out of sight.
+function lineToMark() {
+  const note = $("note");
+  const isOnScreen = (el) => el.offsetTop < note.scrollTop + note.clientHeight && el.offsetTop + el.offsetHeight > note.scrollTop;
+  const caretLine = editor.value.slice(0, editor.selectionStart).split("\n").length - 1;
+  if (isOnScreen(lineEls[caretLine])) return caretLine;
+  let low = 0;
+  let high = lineEls.length - 1;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (lineEls[middle].offsetTop + lineEls[middle].offsetHeight > note.scrollTop + JUMP_GAP_PX + 1) high = middle;
+    else low = middle + 1;
+  }
+  // A blank line makes a useless mark, with no text to preview or to find again.
+  while (low < lineEls.length - 1 && !paintedLines[low].trim()) low++;
+  return low;
+}
+
+function buildMarkRow({ line, text }) {
+  const row = document.createElement("li");
+  const go = document.createElement("button");
+  go.type = "button";
+  go.className = "mark-go";
+  go.textContent = text.trim() || "Blank line";
+  const where = document.createElement("small");
+  where.textContent = `Line ${line + 1}`;
+  go.append(where);
+  go.addEventListener("click", () => {
+    $("toc").close();
+    goToLine(line);
+  });
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "mark-remove";
+  remove.setAttribute("aria-label", `Remove mark on line ${line + 1}`);
+  remove.append(icon("#i-x", ""));
+  remove.addEventListener("click", () => {
+    setMarks(doc, doc.marks.filter((mark) => mark.line !== line));
+    renderMarkRows();
+    $("mark-here").focus();
+  });
+  row.append(go, remove);
+  return row;
+}
+
+function renderMarkRows() {
+  $("marks-list").replaceChildren(...doc.marks.map(buildMarkRow));
+  $("marks-section").hidden = doc.marks.length === 0;
+}
+
+$("mark-here").addEventListener("click", () => {
+  $("toc").close();
+  setMarks(doc, relocate([...doc.marks, { line: markTarget, text: paintedLines[markTarget] }], paintedLines));
+});
+
+function goToLine(line) {
+  // Focusing the note on a phone would pop the keyboard over what the reader came to see.
+  if (matchMedia("(pointer: fine)").matches) {
+    const offset = paintedLines.slice(0, line).reduce((sum, text) => sum + text.length + 1, 0);
+    editor.setSelectionRange(offset, offset);
+    editor.focus({ preventScroll: true });
+  }
+  flyTo(lineEls[line].offsetTop - JUMP_GAP_PX);
+}
+
 // ---- Contents ----
 
 function openContents() {
+  markTarget = lineToMark();
+  renderMarkRows();
   const headings = paintedHeadings;
   const top = $("note").scrollTop + JUMP_GAP_PX + 1;
   const currentAt = headings.findLastIndex(({ el }) => el.offsetTop <= top);
@@ -754,17 +988,14 @@ function openContents() {
   $("toc").showModal();
   const current = $("toc-list").querySelector("[aria-current]");
   current?.focus({ preventScroll: true });
-  current?.scrollIntoView({ block: "center" });
+  // Marks sit at the top of the sheet, so scrolling to the current heading would push them out of sight.
+  if (doc.marks.length) $("toc").scrollTop = 0;
+  else current?.scrollIntoView({ block: "center" });
 }
 
-function jumpTo({ offset, el }) {
+function jumpTo({ line }) {
   $("toc").close();
-  // Focusing the note on a phone would pop the keyboard over what the reader came to see.
-  if (matchMedia("(pointer: fine)").matches) {
-    editor.setSelectionRange(offset, offset);
-    editor.focus({ preventScroll: true });
-  }
-  flyTo(el.offsetTop - JUMP_GAP_PX);
+  goToLine(line);
 }
 
 let flight = 0;
@@ -835,6 +1066,7 @@ function replaceEditorText(next) {
   while (oldEnd > start && nextEnd > start && old[oldEnd - 1] === next[nextEnd - 1]) { oldEnd--; nextEnd--; }
   editor.setRangeText(next.slice(start, nextEnd), start, oldEnd, "preserve");
   paintNote();
+  trackChange({ separate: true });
 }
 
 function setConflict(current, on) {
@@ -860,7 +1092,11 @@ async function showFile(root, parts, fromHome) {
     saving: false,
     failing: false,
     conflict: false,
+    marks: [],
+    history: null,
   };
+  for (const el of markedEls) el.removeAttribute("data-marked");
+  markedEls = [];
   doc = current;
   show("edit", parts.at(-1), [root, ...parts.slice(0, -1)]);
   $("edit-back").href = fromHome ? "/" : pathFor(root, parts.slice(0, -1));
@@ -870,6 +1106,7 @@ async function showFile(root, parts, fromHome) {
   setEditorText("");
   $("note").scrollTop = 0;
   $("toc-open").hidden = true;
+  showUndoButtons(null);
   editor.disabled = true;
   setStatus("Opening…");
 
@@ -908,7 +1145,15 @@ async function showFile(root, parts, fromHome) {
   } else {
     clearDraft(current);
   }
+  loadHistory(current);
+  loadMarks(current);
   restoreScroll(current);
+  // A conflict warning has to stay in view, so the sheet doesn't open over it.
+  if (paintedHeadings.length >= MIN_HEADINGS_TO_AUTO_OPEN && !current.conflict) {
+    openContents();
+    // Nobody pressed anything yet, so no button should light up with a focus ring.
+    $("toc").focus({ preventScroll: true });
+  }
 }
 
 async function save() {
@@ -990,6 +1235,11 @@ async function checkForChanges() {
 }
 
 editor.addEventListener("input", () => {
+  noteChanged();
+  trackChange();
+});
+
+function noteChanged() {
   paintNote();
   if (!doc) return;
   clearTimeout(draftTimer);
@@ -997,7 +1247,8 @@ editor.addEventListener("input", () => {
   if (doc.conflict) return;
   if (!doc.failing) setStatus("Saving…");
   scheduleSave();
-});
+}
+
 editor.addEventListener("compositionstart", () => { composing = true; });
 editor.addEventListener("compositionend", () => { composing = false; });
 
@@ -1021,6 +1272,7 @@ $("use-pc").addEventListener("click", async () => {
     if (!res.ok) throw new Error();
     adoptVersion(current, decoder.decode(await res.arrayBuffer()), res.headers.get("ETag"));
     setEditorText(current.saved);
+    trackChange({ separate: true });
     clearDraft(current);
     setConflict(current, false);
     setStatus("Saved");
@@ -1035,6 +1287,7 @@ async function route(fromHome = false) {
   $("toc").close();
   cancelAnimationFrame(flight);
   keepScroll();
+  keepHistory(doc);
   flushDraft();
   await save();
   doc = null;
@@ -1081,6 +1334,7 @@ window.addEventListener("popstate", (event) => changeRoute(event.hasUAVisualTran
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     keepScroll();
+    keepHistory(doc);
     flushDraft();
     save();
   } else {

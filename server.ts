@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const PORT = 4380;
 const INDEX = join(import.meta.dir, "index.html");
+const CLIENT_MODULES = new Set(["/headings.js", "/history.js", "/marks.js"]);
 const HIDDEN_DIRS = new Set(["node_modules"]);
 // Windows refuses to replace a file another program has open for a moment.
 const BUSY_CODES = new Set(["EBUSY", "EPERM", "EACCES"]);
@@ -109,8 +110,8 @@ async function createFile(dir: string, rawName: string) {
 export function createHandler(allowed: Record<string, string>) {
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
-    if (url.pathname === "/headings.js") {
-      return new Response(Bun.file(join(import.meta.dir, "headings.js")), { headers: { "Cache-Control": "no-cache" } });
+    if (CLIENT_MODULES.has(url.pathname)) {
+      return new Response(Bun.file(join(import.meta.dir, url.pathname)), { headers: { "Cache-Control": "no-cache" } });
     }
     // Every other path is a folder or note the page routes itself, so opening its URL directly must work.
     if (!url.pathname.startsWith("/api/")) return new Response(Bun.file(INDEX), { headers: { "Cache-Control": "no-cache" } });
