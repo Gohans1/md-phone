@@ -1,64 +1,110 @@
 import { describe, expect, it } from "bun:test";
-import { followEdit, relocate } from "./marks.js";
+import { countPerHeading, createMark, followEdit, relocate } from "./marks.js";
 
-const mark = (line: number, text: string) => ({ line, text });
+const offsets = (marks: { offset: number }[]) => marks.map((mark) => mark.offset);
 
-describe("keeping a mark on its line while the note is edited", () => {
-  const lines = ["a", "b", "new", "c", "d"];
-
-  it("moves a mark down when lines are added above it", () => {
-    expect(followEdit([mark(2, "c")], 2, 0, 1, lines)).toEqual([mark(3, "c")]);
+describe("placing a mark", () => {
+  it("remembers the exact character, with the text on both sides", () => {
+    expect(createMark("hello world", 5)).toEqual({ offset: 5, before: "hello", after: " world" });
   });
 
-  it("moves a mark up when lines are removed above it", () => {
-    expect(followEdit([mark(4, "c")], 1, 2, 0, ["a", "b", "c"])).toEqual([mark(2, "c")]);
+  it("keeps only a short piece of text around it", () => {
+    const mark = createMark("a".repeat(100) + "b".repeat(100), 100);
+
+    expect(mark.before).toBe("a".repeat(32));
+    expect(mark.after).toBe("b".repeat(32));
+  });
+});
+
+describe("keeping a mark on its character while the note is edited", () => {
+  const follow = (offset: number, before: string, start: number, removed: string, inserted: string) => {
+    const after = before.slice(0, start) + inserted + before.slice(start + removed.length);
+    return followEdit([createMark(before, offset)], { start, removed, inserted }, after);
+  };
+
+  it("moves right when text is typed before it", () => {
+    const [mark] = follow(6, "hello world", 0, "", "oh ");
+
+    expect(mark).toEqual({ offset: 9, before: "oh hello ", after: "world" });
   });
 
-  it("leaves a mark above the edit alone", () => {
-    const marks = [mark(0, "a")];
-
-    expect(followEdit(marks, 2, 0, 1, lines)).toBe(marks);
+  it("moves left when text before it is deleted", () => {
+    expect(offsets(follow(6, "hello world", 0, "hello ", ""))).toEqual([0]);
   });
 
-  it("updates the preview when the marked line itself is edited", () => {
-    expect(followEdit([mark(1, "b")], 1, 1, 1, ["a", "b typed"])).toEqual([mark(1, "b typed")]);
+  it("stays put when text is typed after it", () => {
+    expect(offsets(follow(2, "hello", 4, "", "x"))).toEqual([2]);
   });
 
-  it("stays on the first line when Enter splits the marked line", () => {
-    expect(followEdit([mark(1, "ab")], 1, 1, 2, ["x", "a", "b"])).toEqual([mark(1, "a")]);
+  it("stays in front of text typed exactly at the mark", () => {
+    expect(offsets(follow(5, "hello world", 5, "", "!"))).toEqual([5]);
   });
 
-  it("merges marks whose lines were deleted together", () => {
-    expect(followEdit([mark(1, "b"), mark(2, "c")], 1, 2, 0, ["a", "d"])).toEqual([mark(1, "d")]);
+  it("moves to where a deleted block was when the mark was inside it", () => {
+    expect(offsets(follow(6, "hello world", 2, "llo wo", ""))).toEqual([2]);
   });
 
-  it("never points past the end of the note", () => {
-    expect(followEdit([mark(2, "c")], 1, 2, 0, ["a"])).toEqual([mark(0, "a")]);
+  it("returns the same list when the edit does not touch any mark", () => {
+    const text = `${"a".repeat(40)}${"b".repeat(40)}`;
+    const marks = [createMark(text, 5)];
+
+    expect(followEdit(marks, { start: 70, removed: "", inserted: "x" }, `${text.slice(0, 70)}x${text.slice(70)}`)).toBe(marks);
+  });
+
+  it("merges marks that end up on the same character", () => {
+    const text = "abcdef";
+    const marks = [createMark(text, 2), createMark(text, 4)];
+
+    expect(offsets(followEdit(marks, { start: 1, removed: "bcde", inserted: "" }, "af"))).toEqual([1]);
   });
 });
 
 describe("finding marks again when a note is opened", () => {
-  it("keeps a mark whose line is unchanged", () => {
-    expect(relocate([mark(1, "b")], ["a", "b"])).toEqual([mark(1, "b")]);
+  it("keeps a mark whose surroundings are unchanged", () => {
+    const text = "hello world";
+
+    expect(offsets(relocate([createMark(text, 6)], text))).toEqual([6]);
   });
 
-  it("follows the text to the nearest line when the file changed on the PC", () => {
-    expect(relocate([mark(1, "b")], ["x", "y", "b", "z", "z", "b"])).toEqual([mark(2, "b")]);
+  it("follows the surrounding text when the file changed on the PC", () => {
+    const mark = createMark("hello world", 6);
+
+    expect(offsets(relocate([mark], "new first line\nhello world"))).toEqual([21]);
   });
 
-  it("keeps the line number when the text is gone", () => {
-    expect(relocate([mark(1, "gone")], ["a", "b"])).toEqual([mark(1, "b")]);
+  it("picks the nearest copy when the text repeats", () => {
+    const mark = { offset: 12, before: "ab", after: "cd" };
+
+    expect(offsets(relocate([mark], "abcd--------abcd----------------abcd"))).toEqual([14]);
   });
 
-  it("does not search for a blank line, which would match anywhere", () => {
-    expect(relocate([mark(2, "")], ["a", "", "b"])).toEqual([mark(2, "b")]);
+  it("keeps the position when the text is gone", () => {
+    expect(offsets(relocate([{ offset: 3, before: "gone", after: "text" }], "completely different"))).toEqual([3]);
   });
 
   it("stays inside a note that got shorter", () => {
-    expect(relocate([mark(9, "gone")], ["a", "b"])).toEqual([mark(1, "b")]);
+    expect(offsets(relocate([{ offset: 99, before: "gone", after: "" }], "short"))).toEqual([5]);
   });
 
-  it("sorts marks and merges any that land on the same line", () => {
-    expect(relocate([mark(3, "b"), mark(1, "a"), mark(0, "b")], ["a", "b"])).toEqual([mark(0, "a"), mark(1, "b")]);
+  it("sorts marks and refreshes their surroundings", () => {
+    const text = "one two three";
+
+    expect(relocate([createMark(text, 8), createMark(text, 4)], text)).toEqual([createMark(text, 4), createMark(text, 8)]);
+  });
+});
+
+describe("counting marks per heading", () => {
+  const headings = [{ offset: 10 }, { offset: 20 }, { offset: 30 }];
+
+  it("counts a mark under the last heading before it", () => {
+    expect(countPerHeading(headings, [{ offset: 10 }, { offset: 15 }, { offset: 25 }])).toEqual([2, 1, 0]);
+  });
+
+  it("counts everything after the last heading under it", () => {
+    expect(countPerHeading(headings, [{ offset: 999 }])).toEqual([0, 0, 1]);
+  });
+
+  it("leaves out marks above the first heading", () => {
+    expect(countPerHeading(headings, [{ offset: 3 }])).toEqual([0, 0, 0]);
   });
 });

@@ -6,8 +6,8 @@ const titles = (text: string) => parseHeadings(text).map((h) => h.title);
 describe("finding headings", () => {
   it("reads the level and title of each heading", () => {
     expect(parseHeadings("# One\n\ntext\n\n### Three")).toEqual([
-      { level: 1, title: "One", offset: 0, line: 0 },
-      { level: 3, title: "Three", offset: 13, line: 4 },
+      { level: 1, title: "One", offset: 0, line: 0, bullets: 0 },
+      { level: 3, title: "Three", offset: 13, line: 4, bullets: 0 },
     ]);
   });
 
@@ -38,13 +38,37 @@ describe("finding headings", () => {
 
   it("finds headings underlined with = or -", () => {
     expect(parseHeadings("Big\n===\n\nSmall\n---")).toEqual([
-      { level: 1, title: "Big", offset: 0, line: 0 },
-      { level: 2, title: "Small", offset: 9, line: 3 },
+      { level: 1, title: "Big", offset: 0, line: 0, bullets: 0 },
+      { level: 2, title: "Small", offset: 9, line: 3, bullets: 0 },
     ]);
   });
 
   it("does not treat a divider as a heading", () => {
     expect(titles("text\n\n---\n\n- item\n---")).toEqual([]);
+  });
+});
+
+describe("counting bullet points", () => {
+  const bullets = (text: string) => parseHeadings(text).map((h) => h.bullets);
+
+  it("counts each heading's own bullets, until the next heading of any level", () => {
+    expect(bullets("# A\n- one\n- two\n## B\n* three\n# C\ntext")).toEqual([2, 1, 0]);
+  });
+
+  it("counts nested bullets and all three bullet markers", () => {
+    expect(bullets("# A\n- one\n  - two\n    + three\n* four")).toEqual([4]);
+  });
+
+  it("does not count numbered lists, dividers, or a marker with no text", () => {
+    expect(bullets("# A\n1. one\n---\n* * *\n- - -\n-\n-no space")).toEqual([0]);
+  });
+
+  it("does not count bullets inside fenced code", () => {
+    expect(bullets("# A\n```\n- code\n```\n- real")).toEqual([1]);
+  });
+
+  it("leaves out bullets above the first heading", () => {
+    expect(bullets("- loose\n# A\n- real")).toEqual([1]);
   });
 });
 
@@ -64,7 +88,7 @@ describe("skipping what is not prose", () => {
   it("ignores frontmatter at the top of the file", () => {
     const text = "---\n# comment\nname: skill\n---\n# Title";
 
-    expect(parseHeadings(text)).toEqual([{ level: 1, title: "Title", offset: text.indexOf("# Title"), line: 4 }]);
+    expect(parseHeadings(text)).toEqual([{ level: 1, title: "Title", offset: text.indexOf("# Title"), line: 4, bullets: 0 }]);
   });
 
   it("reads an unclosed leading --- as a plain document", () => {

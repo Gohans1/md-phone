@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun server.ts"
+    "start": "bun server.ts",
+    "vendor": "bun build scripts/diff-entry.js --format=esm --minify --outfile=vendor/diff.js"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "diff": "9.0.0"
   }
 }

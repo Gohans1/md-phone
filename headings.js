@@ -1,6 +1,8 @@
 const ATX = /^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/;
 const UNDERLINE = /^ {0,3}(=+|-+)[ \t]*$/;
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+const BULLET = /^\s*[-*+][ \t]+\S/;
+const DIVIDER = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 // Lines an underline cannot turn into a heading: blank, indented code, lists, quotes, tables.
 const NOT_PROSE = /^\s*$|^(?: {4}|\t)|^ {0,3}(?:[-*+>|]|\d+[.)])(?:\s|$)/;
 
@@ -49,7 +51,7 @@ export function parseHeadings(text) {
     const atx = ATX.exec(line);
     if (atx) {
       const title = plainTitle((atx[2] ?? "").replace(/(?:^|[ \t]+)#+[ \t]*$/, ""));
-      if (title) headings.push({ level: atx[1].length, title, offset: start, line: i });
+      if (title) headings.push({ level: atx[1].length, title, offset: start, line: i, bullets: 0 });
       paragraph = null;
       continue;
     }
@@ -58,12 +60,13 @@ export function parseHeadings(text) {
     if (underline) {
       const title = paragraph && plainTitle(paragraph.line);
       if (title) {
-        headings.push({ level: underline[1][0] === "=" ? 1 : 2, title, offset: paragraph.start, line: paragraph.index });
+        headings.push({ level: underline[1][0] === "=" ? 1 : 2, title, offset: paragraph.start, line: paragraph.index, bullets: 0 });
       }
       paragraph = null;
       continue;
     }
 
+    if (BULLET.test(line) && !DIVIDER.test(line) && headings.length) headings[headings.length - 1].bullets++;
     paragraph = NOT_PROSE.test(line) ? null : { line, start, index: i };
   }
   return headings;

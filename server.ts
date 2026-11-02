@@ -3,7 +3,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const PORT = 4380;
 const INDEX = join(import.meta.dir, "index.html");
-const CLIENT_MODULES = new Set(["/headings.js", "/history.js", "/marks.js"]);
+const CLIENT_MODULES = new Set(["/changes.js", "/headings.js", "/history.js", "/marks.js", "/vendor/diff.js"]);
 const HIDDEN_DIRS = new Set(["node_modules"]);
 // Windows refuses to replace a file another program has open for a moment.
 const BUSY_CODES = new Set(["EBUSY", "EPERM", "EACCES"]);
@@ -107,6 +107,12 @@ async function createFile(dir: string, rawName: string) {
   return Response.json({ name }, { status: 201, headers: NO_STORE });
 }
 
+function describeRoot(name: string, dir: string) {
+  const wsl = /^\\\\wsl(?:\.localhost|\$)\\[^\\]+(\\.*)?$/i.exec(dir);
+  if (wsl) return { name, system: "WSL", path: (wsl[1] ?? "\\").replaceAll("\\", "/") };
+  return { name, system: dir.startsWith("/") ? "Linux" : "Windows", path: dir };
+}
+
 export function createHandler(allowed: Record<string, string>) {
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
@@ -115,7 +121,9 @@ export function createHandler(allowed: Record<string, string>) {
     }
     // Every other path is a folder or note the page routes itself, so opening its URL directly must work.
     if (!url.pathname.startsWith("/api/")) return new Response(Bun.file(INDEX), { headers: { "Cache-Control": "no-cache" } });
-    if (url.pathname === "/api/roots") return Response.json(Object.keys(allowed), { headers: NO_STORE });
+    if (url.pathname === "/api/roots") {
+      return Response.json(Object.entries(allowed).map(([name, dir]) => describeRoot(name, dir)), { headers: NO_STORE });
+    }
 
     const isList = url.pathname === "/api/list";
     const isCreate = url.pathname === "/api/create";

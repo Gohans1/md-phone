@@ -253,6 +253,26 @@ describe("listing a folder", () => {
 
     const listed = await roots(new Request("http://x/api/roots"));
 
-    expect(await listed.json()).toEqual(["gone"]);
+    expect((await listed.json()).map((root: { name: string }) => root.name)).toEqual(["gone"]);
+  });
+
+  it("says which system each root is on, with the path as that system writes it", async () => {
+    const roots = createHandler({
+      win: "C:\\Users\\me\\notes",
+      wsl: "\\\\wsl.localhost\\Ubuntu\\home\\me\\notes",
+      old: "\\\\wsl$\\Debian\\home\\me",
+      nas: "\\\\server\\share\\notes",
+      linux: "/srv/notes",
+    });
+
+    const listed = await roots(new Request("http://x/api/roots"));
+
+    expect(await listed.json()).toEqual([
+      { name: "win", system: "Windows", path: "C:\\Users\\me\\notes" },
+      { name: "wsl", system: "WSL", path: "/home/me/notes" },
+      { name: "old", system: "WSL", path: "/home/me" },
+      { name: "nas", system: "Windows", path: "\\\\server\\share\\notes" },
+      { name: "linux", system: "Linux", path: "/srv/notes" },
+    ]);
   });
 });

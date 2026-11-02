@@ -5,7 +5,7 @@ const MAX_CHARS = 200_000;
 
 export const createHistory = (text) => ({ text, done: [], undone: [], at: 0 });
 
-function diff(before, after) {
+export function diff(before, after) {
   const shortest = Math.min(before.length, after.length);
   let start = 0;
   while (start < shortest && before[start] === after[start]) start++;
@@ -46,7 +46,7 @@ export function record(history, next, now, { separate = false } = {}) {
   const last = history.done.at(-1);
   const merged = !separate && last && now - history.at < MERGE_WINDOW_MS ? merge(last, edit) : null;
   if (merged) history.done[history.done.length - 1] = merged;
-  else history.done.push({ ...edit, block: separate || isBlockEdit(edit) });
+  else history.done.push({ ...edit, block: separate || isBlockEdit(edit), fromPc: separate });
   history.text = next;
   history.undone = [];
   history.at = now;
@@ -60,7 +60,7 @@ function step(history, from, to, oldText, newText) {
   const end = edit.start + edit[oldText].length;
   history.text = history.text.slice(0, edit.start) + edit[newText] + history.text.slice(end);
   history.at = 0;
-  return { start: edit.start, end, text: edit[newText], caret: edit.start + edit[newText].length };
+  return { start: edit.start, end, text: edit[newText], caret: edit.start + edit[newText].length, fromPc: edit.fromPc };
 }
 
 export const undo = (history) => step(history, "done", "undone", "inserted", "removed");

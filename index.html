@@ -60,7 +60,13 @@
   #status { padding-inline-end: 4px; }
   /* One line only, so the header keeps its height and the note never shifts when undo appears mid-typing. */
   #edit-title { display: block; white-space: nowrap; text-overflow: ellipsis; }
-  #edit-screen .titles { min-width: 64px; }
+  #edit-screen .titles { min-width: 28px; }
+  #status[data-tone="warn"] { min-width: 72px; }
+  @media (max-width: 360px) {
+    #edit-screen .note-action, #toc-open { width: 36px; }
+    #edit-screen .titles { min-width: 0; }
+    #status[data-tone="warn"] { min-width: 56px; }
+  }
   .note-action {
     flex: none;
     display: grid;
@@ -81,6 +87,9 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* A long path loses its start, not the end that says where the file is. */
+    direction: rtl;
+    text-align: left;
   }
   .where:empty { display: none; }
   h1 {
@@ -189,7 +198,7 @@
   }
   .pin[aria-pressed="true"] { color: var(--accent); }
   .pin[aria-pressed="true"] svg { fill: currentColor; }
-  #pinned-section h2 {
+  .list-heading {
     margin: 0;
     padding-block: 20px 4px;
     padding-inline: 16px;
@@ -237,14 +246,49 @@
   }
   #editor::selection { background: rgb(58 169 159 / 0.35); }
   #painted div { min-height: 1lh; }
-  #painted div[data-marked] { position: relative; }
-  #painted div[data-marked]::before {
+  #mark-pill {
+    position: absolute;
+    z-index: 2;
+    width: max-content;
+    min-height: 40px;
+    padding-inline: 14px;
+    font-size: 0.875rem;
+    color: var(--accent);
+    background: var(--sheet);
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
+  }
+  #toast {
+    position: fixed;
+    inset: 60px 16px auto;
+    width: fit-content;
+    max-width: calc(100vw - 32px);
+    margin-inline: auto;
+    padding: 8px 14px;
+    font-size: 0.875rem;
+    color: var(--text);
+    background: var(--line);
+    border: 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
+  }
+  .spot { position: relative; }
+  .spot::before {
     content: "";
     position: absolute;
-    inset-block: 4px;
-    inset-inline-start: -10px;
-    width: 3px;
-    border-radius: 2px;
+    inset-block: 0;
+    inset-inline-start: -1px;
+    width: 2px;
+    background: var(--accent);
+  }
+  .spot::after {
+    content: "";
+    position: absolute;
+    inset-block-start: -3px;
+    inset-inline-start: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
     background: var(--accent);
   }
   .h1 { color: #D0A215; }
@@ -291,23 +335,6 @@
     padding-inline: 4px;
     background: var(--sheet);
   }
-  #toc-bar #mark-here {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    width: auto;
-    margin-inline-end: auto;
-    padding-inline: 12px;
-    color: var(--accent);
-  }
-  #toc h2 {
-    margin: 0;
-    padding-block: 8px 4px;
-    padding-inline: 16px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--muted);
-  }
   #toc-bar button {
     display: grid;
     place-items: center;
@@ -315,13 +342,72 @@
     padding: 0;
     border: 0;
   }
+  #toc-bar .tab {
+    width: auto;
+    padding-inline: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--muted);
+    border-radius: 0;
+  }
+  #toc-bar .tab[aria-pressed="true"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+  #toc-bar #go-top { margin-inline-start: auto; }
   #toc-bar button:active { background: var(--line); }
-  #toc-empty { margin: 0; padding: 4px 16px 24px; color: var(--muted); }
+  #changes-view { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+  #changes-actions {
+    position: sticky;
+    z-index: 1;
+    inset-block-start: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--bg);
+    border-block-end: 1px solid var(--line);
+  }
+  #changes-list { max-width: 42rem; margin-inline: auto; }
+  #changes-open { color: var(--accent); }
+  #changes-open[aria-pressed="true"] { background: var(--pressed); }
+  #changes-count { margin-inline-end: auto; font-size: 0.875rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #discard-changes { padding-inline: 12px; border-color: var(--muted); }
+  #mark-reviewed { padding-inline: 12px; color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+  #changes-list { padding-block-end: 16px; }
+  .hunk + .hunk { margin-block-start: 8px; }
+  #changes-list .hunk-go {
+    display: block;
+    width: 100%;
+    min-height: 40px;
+    padding-inline: 16px;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    text-align: start;
+    color: var(--muted);
+    background: var(--line);
+    border: 0;
+    border-radius: 0;
+  }
+  .change { display: flex; gap: 8px; padding-block: 2px; padding-inline: 8px 16px; line-height: 1.5; }
+  .change .sign { flex: none; width: 1ch; color: var(--muted); }
+  .change-text { flex: 1; min-width: 0; min-height: 1lh; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .change.same .change-text { color: var(--muted); }
+  .change.added { background: rgb(135 154 57 / 0.16); }
+  .change.removed { background: rgb(232 112 95 / 0.14); }
+  .change.added .sign { color: #A5BB4B; }
+  .change.removed .sign { color: var(--warn); }
+  .change ins { text-decoration: none; background: rgb(135 154 57 / 0.42); border-radius: 2px; }
+  .change del { text-decoration: line-through; background: rgb(232 112 95 / 0.38); border-radius: 2px; }
+  .sheet-empty { margin: 0; padding: 12px 16px 24px; color: var(--muted); }
   .toc-rows { margin: 0; padding: 0 0 12px; list-style: none; }
-  #marks-list { padding-block-end: 0; }
   #marks-list li { display: flex; }
   .toc-rows .mark-go { flex: 1; min-width: 0; }
   .toc-rows .mark-go small { display: block; font-size: 0.8125rem; color: var(--muted); }
+  .toc-rows .heading-row { display: flex; gap: 12px; align-items: baseline; }
+  .heading-row > span:first-child { flex: 1; min-width: 0; }
+  .counts { flex: none; display: flex; gap: 10px; font-size: 0.8125rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .count { display: inline-flex; gap: 3px; align-items: center; }
+  .count svg { width: 14px; height: 14px; }
+  .for-screen-readers { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .toc-rows .mark-remove { flex: none; display: grid; place-items: center; width: 44px; padding: 0; color: var(--muted); }
   .toc-rows button {
     display: block;
@@ -367,6 +453,10 @@
     @keyframes to-right { to { translate: 100% 0; } }
     @keyframes from-left { from { translate: -30% 0; } }
     .toc-rows button:active { scale: none; }
+    #toast:popover-open, #mark-pill {
+      transition: opacity 120ms ease-out;
+      @starting-style { opacity: 0; }
+    }
     #toc[open] {
       transition: translate 200ms cubic-bezier(0.32, 0.72, 0, 1);
       @starting-style { translate: 0 100%; }
@@ -387,7 +477,8 @@
   <symbol id="i-toc" viewBox="0 0 24 24"><path d="M16 12H3"/><path d="M16 18H3"/><path d="M16 6H3"/><path d="M21 12h.01"/><path d="M21 18h.01"/><path d="M21 6h.01"/></symbol>
   <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></symbol>
   <symbol id="i-redo" viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></symbol>
-  <symbol id="i-mark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/><path d="M12 7v6"/><path d="M15 10H9"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></symbol>
+  <symbol id="i-changes" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
   <symbol id="i-top" viewBox="0 0 24 24"><path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/></symbol>
   <symbol id="i-bottom" viewBox="0 0 24 24"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></symbol>
@@ -412,10 +503,11 @@
     <p id="new-error" hidden></p>
   </form>
   <div id="list-body">
+    <div id="root-groups"></div>
     <ul id="items" class="rows"></ul>
     <p id="message" class="message" role="status" hidden></p>
     <section id="pinned-section" aria-labelledby="pinned-heading" hidden>
-      <h2 id="pinned-heading">Pinned</h2>
+      <h2 id="pinned-heading" class="list-heading">Pinned</h2>
       <ul id="pinned" class="rows"></ul>
     </section>
   </div>
@@ -431,6 +523,8 @@
     <span id="status" role="status"></span>
     <button id="undo" class="note-action" type="button" aria-label="Undo" hidden><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg></button>
     <button id="redo" class="note-action" type="button" aria-label="Redo" hidden><svg class="icon" aria-hidden="true"><use href="#i-redo"/></svg></button>
+    <button id="changes-open" class="note-action" type="button" aria-label="Changes" aria-pressed="false" hidden><svg class="icon" aria-hidden="true"><use href="#i-changes"/></svg></button>
+    <button id="marks-open" class="note-action" type="button" aria-label="Marks" aria-haspopup="dialog" hidden><svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg></button>
     <button id="toc-open" type="button" aria-label="Contents" aria-haspopup="dialog" hidden><svg class="icon" aria-hidden="true"><use href="#i-toc"/></svg></button>
   </header>
   <section id="conflict" role="alert" hidden>
@@ -445,28 +539,41 @@
     <div id="note-sheet">
       <div id="painted" aria-hidden="true"></div>
       <textarea id="editor" aria-labelledby="edit-title" autocapitalize="sentences" spellcheck="false" disabled></textarea>
+      <button id="mark-pill" type="button" hidden>Mark</button>
     </div>
   </div>
+  <section id="changes-view" aria-label="Changes since your last review" hidden>
+    <div id="changes-actions">
+      <span id="changes-count"></span>
+      <button id="discard-changes" type="button">Discard</button>
+      <button id="mark-reviewed" type="button">Mark as reviewed</button>
+    </div>
+    <div id="changes-list"></div>
+  </section>
+  <div id="toast" role="status" popover="manual"></div>
   <dialog id="toc" closedby="any" aria-label="Marks and contents" tabindex="-1">
     <div id="toc-bar">
-      <button id="mark-here" type="button"><svg class="icon" aria-hidden="true"><use href="#i-mark"/></svg>Mark this spot</button>
+      <button id="tab-contents" class="tab" type="button" aria-pressed="true">Contents</button>
+      <button id="tab-marks" class="tab" type="button" aria-pressed="false">Marks</button>
       <button id="go-top" type="button" aria-label="Go to top"><svg class="icon" aria-hidden="true"><use href="#i-top"/></svg></button>
       <button id="go-bottom" type="button" aria-label="Go to bottom"><svg class="icon" aria-hidden="true"><use href="#i-bottom"/></svg></button>
     </div>
-    <section id="marks-section" aria-labelledby="marks-heading" hidden>
-      <h2 id="marks-heading">Marks</h2>
+    <div id="view-contents">
+      <p id="toc-empty" class="sheet-empty" hidden>No headings yet. Start a line with # to add one.</p>
+      <ul id="toc-list" class="toc-rows"></ul>
+    </div>
+    <div id="view-marks" hidden>
+      <p id="marks-empty" class="sheet-empty">No marks yet. Tap a spot in the note, then tap Mark.</p>
       <ul id="marks-list" class="toc-rows"></ul>
-    </section>
-    <h2>Contents</h2>
-    <p id="toc-empty" hidden>No headings yet. Start a line with # to add one.</p>
-    <ul id="toc-list" class="toc-rows"></ul>
+    </div>
   </dialog>
 </main>
 
 <script type="module">
 import { parseHeadings } from "/headings.js";
-import { createHistory, hashText, record, redo, undo } from "/history.js";
-import { followEdit, relocate } from "/marks.js";
+import { applyOwnEdit, buildHunks } from "/changes.js";
+import { createHistory, diff, hashText, record, redo, undo } from "/history.js";
+import { countPerHeading, createMark, followEdit, relocate } from "/marks.js";
 
 const SAVE_DELAY_MS = 800;
 const JUMP_GAP_PX = 12;
@@ -476,6 +583,12 @@ const CONTENT_WAIT_MS = 250;
 const SCROLL_DELAY_MS = 200;
 const HISTORY_DELAY_MS = 500;
 const MIN_HEADINGS_TO_AUTO_OPEN = 5;
+const MAX_REVIEWED_NOTES = 20;
+const MAX_REVIEWED_CHARS = 100_000;
+const TOAST_MS = 1800;
+const CHANGE_GAP_PX = 64;
+const PILL_DELAY_MS = 120;
+const PILL_GAP_PX = 8;
 const DRAFT_DELAY_MS = 250;
 const POLL_MS = 3000;
 const OFFLINE_HELP = "Check that the PC is on and Tailscale is connected, then pull down to reload.";
@@ -492,6 +605,31 @@ let composing = false;
 const pathFor = (root, parts) => "/" + [root, ...parts].map(encodeURIComponent).join("/");
 const parsePath = (path) => path.split("/").filter(Boolean).map(decodeURIComponent);
 const whereText = (parents) => parents.join(" / ");
+
+let rootsLoading = null;
+let rootsByName = new Map();
+
+function loadRoots() {
+  rootsLoading ??= fetch("/api/roots")
+    .then((res) => res.json())
+    .then((roots) => {
+      rootsByName = new Map(roots.map((root) => [root.name, root]));
+      return roots;
+    })
+    .catch((error) => {
+      rootsLoading = null;
+      throw error;
+    });
+  return rootsLoading;
+}
+
+// The path as Windows or WSL writes it, or the folder names alone until the server has said.
+function fullPath(root, parts) {
+  const info = rootsByName.get(root);
+  if (!info) return whereText([root, ...parts]);
+  const separator = info.path.includes("\\") ? "\\" : "/";
+  return [info.path.replace(/[\\/]$/, ""), ...parts].join(separator);
+}
 const apiQuery = (root, path) => `root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`;
 
 // shortcut: pins stay in this browser and go if its site data is cleared, move them to a file on the PC if they must follow other devices.
@@ -522,13 +660,25 @@ function setStatus(text, tone = "") {
   if (status.dataset.tone !== tone) status.dataset.tone = tone;
 }
 
-function show(screen, title, parents = []) {
+function showWhere(id, root, parts) {
+  const paint = () => {
+    const path = root ? fullPath(root, parts) : "";
+    const text = document.createElement("bdi");
+    text.textContent = path;
+    $(id).replaceChildren(...(path ? [text] : []));
+    $(id).title = path;
+  };
+  paint();
+  if (root) loadRoots().then(paint, () => {});
+}
+
+function show(screen, title, root, parts = []) {
   $("list-screen").hidden = screen !== "list";
   $("edit-screen").hidden = screen !== "edit";
   document.title = title;
   const heading = $(screen === "list" ? "list-title" : "edit-title");
   heading.textContent = title;
-  $(screen === "list" ? "list-where" : "edit-where").textContent = whereText(parents);
+  showWhere(screen === "list" ? "list-where" : "edit-where", root, parts);
   heading.focus({ preventScroll: true });
 }
 
@@ -560,7 +710,7 @@ function buildRow({ href, label, isFile, hint }) {
   link.append(icon(isFile ? "#i-file" : "#i-folder", "kind"), text);
   if (!isFile) link.append(icon("#i-next", "chevron"));
   row.append(link);
-  if (isFile) row.append(buildPinButton(href, hint ? `${hint} / ${label}` : label));
+  if (isFile) row.append(buildPinButton(href, hint || label));
   return row;
 }
 
@@ -589,7 +739,7 @@ function renderPinned() {
   const rows = [...pins]
     .map((href) => {
       const [root, ...parts] = parsePath(href);
-      return { href, isFile: true, label: parts.at(-1), hint: whereText([root, ...parts.slice(0, -1)]) };
+      return { href, isFile: true, label: parts.at(-1), hint: fullPath(root, parts) };
     })
     .sort((a, b) => a.label.localeCompare(b.label) || a.hint.localeCompare(b.hint));
   $("pinned").replaceChildren(...rows.map(buildRow));
@@ -631,20 +781,44 @@ async function showRoots() {
   $("new-file").hidden = true;
   closeNewForm();
   renderItems([], "Opening…");
-  renderPinned();
+  $("root-groups").replaceChildren();
+  $("pinned-section").hidden = true;
   try {
-    const names = await (await fetch("/api/roots")).json();
+    const roots = await loadRoots();
     if (location.pathname !== openedAt) return;
-    renderItems(names.map((name) => ({ href: pathFor(name, []), label: name })), "No folders are set up. Add one to roots.json on the PC.");
+    renderItems([], "No folders are set up. Add one to roots.json on the PC.");
+    $("message").hidden = roots.length > 0;
+    renderRootGroups(roots);
   } catch {
-    if (location.pathname === openedAt) renderItems([], `Unable to reach the PC. ${OFFLINE_HELP}`);
+    if (location.pathname !== openedAt) return;
+    renderItems([], `Unable to reach the PC. ${OFFLINE_HELP}`);
   }
+  renderPinned();
+}
+
+function renderRootGroups(roots) {
+  const systems = [...new Set(roots.map((root) => root.system))];
+  $("root-groups").replaceChildren(...systems.map((system) => {
+    const group = document.createElement("section");
+    group.setAttribute("aria-label", system);
+    const heading = document.createElement("h2");
+    heading.className = "list-heading";
+    heading.textContent = system;
+    const list = document.createElement("ul");
+    list.className = "rows";
+    list.append(...roots
+      .filter((root) => root.system === system)
+      .map(({ name, path }) => buildRow({ href: pathFor(name, []), label: name, hint: path })));
+    group.append(heading, list);
+    return group;
+  }));
 }
 
 async function showFolder(root, parts) {
   redrawFolder = null;
   const openedAt = location.pathname;
-  show("list", parts.at(-1) ?? root, parts.length ? [root, ...parts.slice(0, -1)] : []);
+  show("list", parts.at(-1) ?? root, root, parts);
+  $("root-groups").replaceChildren();
   $("list-back").hidden = false;
   $("list-back").href = parts.length ? pathFor(root, parts.slice(0, -1)) : "/";
   $("new-file").hidden = true;
@@ -750,6 +924,7 @@ function adoptVersion(current, raw, version) {
 }
 
 let paintedLines = [];
+let paintedText = "";
 let lineEls = [];
 let paintedHeadings = [];
 
@@ -778,23 +953,156 @@ function paintNote() {
   $("painted").insertBefore(batch, after);
   lineEls = [...lineEls.slice(0, head), ...fresh, ...lineEls.slice(lineEls.length - tail)];
   paintedLines = lines;
-  if (doc?.marks.length) {
-    const followed = followEdit(doc.marks, head, gone.length, fresh.length, lines);
-    if (followed !== doc.marks) setMarks(doc, followed);
-    else showMarksInNote(doc);
-  }
+  const previousText = paintedText;
+  paintedText = text;
 
   const next = parseHeadings(text).map((heading) => ({ ...heading, el: lineEls[heading.line] }));
   const colored = new Set(next.map(({ el }) => el));
   for (const { el } of paintedHeadings) if (!colored.has(el)) el.className = "";
   for (const { el, level } of next) if (el.className !== `h${level}`) el.className = `h${level}`;
   paintedHeadings = next;
+  if (doc?.marks.length) {
+    const followed = followEdit(doc.marks, diff(previousText, text), text);
+    if (followed !== doc.marks) setMarks(doc, followed);
+    else showMarksInNote(doc);
+  }
 }
 
 function setEditorText(text) {
   editor.value = text;
   paintNote();
 }
+
+// ---- Changes since the last review, compared with a copy kept per note on this phone ----
+
+const reviewedKey = (current) => `reviewed:${current.draftKey.slice("draft:".length)}`;
+const hasChanges = (current) => current?.reviewed !== null && current?.reviewed !== undefined && current.reviewed !== editor.value;
+
+let noteScrollBeforeChanges = 0;
+const changesOpen = () => !$("changes-view").hidden;
+
+function showChangesHint() {
+  $("changes-open").hidden = !hasChanges(doc);
+  if (!changesOpen()) return;
+  if (hasChanges(doc)) renderChanges();
+  else closeChanges();
+}
+
+function openChanges() {
+  if (!hasChanges(doc) || changesOpen()) return;
+  keepScroll();
+  noteScrollBeforeChanges = $("note").scrollTop;
+  hideMarkPill();
+  $("note").hidden = true;
+  $("changes-view").hidden = false;
+  $("changes-open").setAttribute("aria-pressed", "true");
+  renderChanges();
+  const first = $("changes-view").querySelector(".change.added, .change.removed");
+  if (first) $("changes-view").scrollTop = first.offsetTop - $("changes-actions").offsetHeight - CHANGE_GAP_PX;
+}
+
+function closeChanges() {
+  if (!changesOpen()) return;
+  $("changes-view").hidden = true;
+  $("note").hidden = false;
+  $("changes-open").setAttribute("aria-pressed", "false");
+  $("note").scrollTop = noteScrollBeforeChanges;
+}
+
+$("changes-open").addEventListener("click", () => (changesOpen() ? closeChanges() : openChanges()));
+
+// Copies are big, and running out of room here must never cost the phone its unsaved drafts.
+function keepReviewed(current) {
+  if (!current || current.reviewed === null) return;
+  try {
+    const key = reviewedKey(current);
+    let order = JSON.parse(localStorage.getItem("reviewed-order")) ?? [];
+    order = [...order.filter((other) => other !== key), key];
+    for (const old of order.splice(0, Math.max(0, order.length - MAX_REVIEWED_NOTES))) localStorage.removeItem(old);
+    if (current.reviewed.length > MAX_REVIEWED_CHARS) localStorage.removeItem(key);
+    else localStorage.setItem(key, current.reviewed);
+    localStorage.setItem("reviewed-order", JSON.stringify(order));
+  } catch {}
+}
+
+function loadReviewed(current) {
+  let stored = null;
+  try { stored = localStorage.getItem(reviewedKey(current)); } catch {}
+  // A draft is your own text, so it never counts as a change to review.
+  const base = stored ?? current.saved;
+  current.reviewed = base === current.saved ? editor.value : base;
+  showChangesHint();
+}
+
+function followOwnEdit(textBefore) {
+  if (!doc || doc.reviewed === null) return;
+  doc.reviewed = doc.reviewed === textBefore ? editor.value : applyOwnEdit(doc.reviewed, textBefore, diff(textBefore, editor.value));
+  showChangesHint();
+}
+
+function buildChangeRow({ kind, text, parts }) {
+  const row = document.createElement("div");
+  row.className = `change ${kind}`;
+  const sign = document.createElement("span");
+  sign.className = "sign";
+  sign.setAttribute("aria-hidden", "true");
+  sign.textContent = kind === "added" ? "+" : kind === "removed" ? "−" : "";
+  const label = document.createElement("span");
+  label.className = "for-screen-readers";
+  label.textContent = kind === "added" ? "Added: " : kind === "removed" ? "Removed: " : "";
+  const body = document.createElement("span");
+  body.className = "change-text";
+  if (parts) {
+    for (const part of parts) {
+      if (part.changed) {
+        const word = document.createElement(kind === "added" ? "ins" : "del");
+        word.textContent = part.text;
+        body.append(word);
+      } else {
+        body.append(part.text);
+      }
+    }
+  } else {
+    body.textContent = text;
+  }
+  row.append(sign, label, body);
+  return row;
+}
+
+function renderChanges() {
+  const { hunks, added, removed } = buildHunks(doc.reviewed ?? editor.value, editor.value);
+  $("changes-count").textContent = `+${added} −${removed}`;
+  $("changes-list").replaceChildren(...hunks.map(({ line, rows }) => {
+    const hunk = document.createElement("section");
+    hunk.className = "hunk";
+    const go = document.createElement("button");
+    go.type = "button";
+    go.className = "hunk-go";
+    go.textContent = `Go to line ${line}`;
+    go.addEventListener("click", () => {
+      goToLine(Math.min(line, lineEls.length) - 1);
+    });
+    hunk.append(go, ...rows.map(buildChangeRow));
+    return hunk;
+  }));
+}
+
+$("mark-reviewed").addEventListener("click", () => {
+  doc.reviewed = editor.value;
+  keepReviewed(doc);
+  showChangesHint();
+  showToast("Marked as reviewed");
+});
+
+// Undo brings the changes back, so this needs no confirmation.
+$("discard-changes").addEventListener("click", () => {
+  closeChanges();
+  editor.setRangeText(doc.reviewed, 0, editor.value.length, "start");
+  noteChanged();
+  trackChange({ separate: true });
+  showChangesHint();
+  showToast("Changes discarded. Undo brings them back.");
+});
 
 // ---- Undo and redo, kept per note on this phone so they survive Android closing the tab ----
 
@@ -809,6 +1117,7 @@ function showUndoButtons(history) {
 function keepHistory(current) {
   clearTimeout(historyTimer);
   if (!current?.history) return;
+  keepReviewed(current);
   const { done, undone, text } = current.history;
   try {
     if (done.length || undone.length) localStorage.setItem(historyKey(current), JSON.stringify({ done, undone, hash: hashText(text) }));
@@ -840,11 +1149,15 @@ function applyHistoryStep(step) {
   if (!doc?.history) return;
   const change = step(doc.history);
   if (!change) return;
+  const textBefore = paintedText;
   editor.setRangeText(change.text, change.start, change.end, "end");
   editor.setSelectionRange(change.caret, change.caret);
   noteChanged();
+  if (change.fromPc) showChangesHint();
+  else followOwnEdit(textBefore);
   showUndoButtons(doc.history);
   keepHistory(doc);
+  if (changesOpen()) return;
   // The change may be far from where the reader is, and it has to be seen to be trusted.
   const note = $("note");
   const el = lineEls[editor.value.slice(0, change.start).split("\n").length - 1];
@@ -853,9 +1166,11 @@ function applyHistoryStep(step) {
 }
 
 for (const [id, step] of [["undo", undo], ["redo", redo]]) {
+  $(id).addEventListener("click", () => applyHistoryStep(step));
+}
+for (const id of ["undo", "redo", "mark-pill"]) {
   // Keeping focus in the note keeps the phone's keyboard open.
   $(id).addEventListener("mousedown", (event) => event.preventDefault());
-  $(id).addEventListener("click", () => applyHistoryStep(step));
 }
 
 // The browser's own history is wiped by this page's text updates, and then it stops announcing undo and redo at all.
@@ -876,13 +1191,54 @@ editor.addEventListener("beforeinput", (event) => {
 // ---- Marks, kept per note on this phone ----
 
 let markedEls = [];
-let markTarget = 0;
 const marksKey = (current) => `marks:${current.draftKey.slice("draft:".length)}`;
+const lineStart = (line) => paintedLines.slice(0, line).reduce((sum, text) => sum + text.length + 1, 0);
 
+function lineAndColumn(offset) {
+  let line = 0;
+  let start = 0;
+  while (line < paintedLines.length - 1 && offset > start + paintedLines[line].length) {
+    start += paintedLines[line].length + 1;
+    line++;
+  }
+  return { line, column: offset - start };
+}
+
+function buildSpot(column) {
+  const spot = document.createElement("span");
+  spot.className = "spot";
+  if (column !== undefined) spot.dataset.column = column;
+  return spot;
+}
+
+// Only lines whose marks changed are rebuilt, because this runs on every keystroke while a note has marks.
 function showMarksInNote(current) {
-  for (const el of markedEls) el.removeAttribute("data-marked");
-  markedEls = current.marks.map(({ line }) => lineEls[line]);
-  for (const el of markedEls) el.setAttribute("data-marked", "");
+  const columnsByEl = new Map();
+  for (const { offset } of current.marks) {
+    const { line, column } = lineAndColumn(offset);
+    const el = lineEls[line];
+    columnsByEl.set(el, [...(columnsByEl.get(el) ?? []), column]);
+  }
+  for (const el of markedEls) {
+    if (columnsByEl.has(el)) continue;
+    el.textContent = el.textContent;
+    delete el.dataset.columns;
+  }
+  for (const [el, columns] of columnsByEl) {
+    const key = columns.join();
+    if (el.dataset.columns === key) continue;
+    const text = el.textContent;
+    const nodes = [];
+    let at = 0;
+    for (const column of columns) {
+      nodes.push(text.slice(at, column), buildSpot(column));
+      at = column;
+    }
+    nodes.push(text.slice(at));
+    el.replaceChildren(...nodes);
+    el.dataset.columns = key;
+  }
+  markedEls = [...columnsByEl.keys()];
 }
 
 function setMarks(current, marks) {
@@ -894,39 +1250,123 @@ function setMarks(current, marks) {
 function loadMarks(current) {
   let saved = [];
   try { saved = JSON.parse(localStorage.getItem(marksKey(current))) ?? []; } catch {}
-  setMarks(current, relocate(saved, paintedLines));
+  // Marks saved before they tracked exact positions only know their line.
+  const marks = saved.map((mark) => (mark.line === undefined ? mark : createMark(editor.value, lineStart(mark.line))));
+  setMarks(current, relocate(marks, editor.value));
 }
 
-// The line being edited, or the top of the screen when the caret is somewhere out of sight.
-function lineToMark() {
-  const note = $("note");
-  const isOnScreen = (el) => el.offsetTop < note.scrollTop + note.clientHeight && el.offsetTop + el.offsetHeight > note.scrollTop;
-  const caretLine = editor.value.slice(0, editor.selectionStart).split("\n").length - 1;
-  if (isOnScreen(lineEls[caretLine])) return caretLine;
-  let low = 0;
-  let high = lineEls.length - 1;
-  while (low < high) {
-    const middle = (low + high) >> 1;
-    if (lineEls[middle].offsetTop + lineEls[middle].offsetHeight > note.scrollTop + JUMP_GAP_PX + 1) high = middle;
-    else low = middle + 1;
+// ---- Mark button that floats at the cursor, like the phone's own Cut and Copy menu ----
+
+let pillTimer = 0;
+let lastEditAt = 0;
+let toastTimer = 0;
+
+function showToast(text) {
+  const toast = $("toast");
+  clearTimeout(toastTimer);
+  toast.textContent = text;
+  // Showing it again puts it above an open sheet.
+  if (toast.matches(":popover-open")) toast.hidePopover();
+  toast.showPopover();
+  toastTimer = setTimeout(() => toast.hidePopover(), TOAST_MS);
+}
+
+function hideMarkPill() {
+  clearTimeout(pillTimer);
+  $("mark-pill").hidden = true;
+}
+
+function caretBox(offset) {
+  const { line, column } = lineAndColumn(offset);
+  const el = lineEls[line];
+  let left = column;
+  for (const node of el.childNodes) {
+    if (node.nodeType !== Node.TEXT_NODE) continue;
+    if (left <= node.length) {
+      const range = document.createRange();
+      range.setStart(node, left);
+      range.setEnd(node, Math.min(left + 1, node.length));
+      const box = range.getClientRects()[0];
+      if (box) return box;
+    }
+    left -= node.length;
   }
-  // A blank line makes a useless mark, with no text to preview or to find again.
-  while (low < lineEls.length - 1 && !paintedLines[low].trim()) low++;
-  return low;
+  return el.getBoundingClientRect();
 }
 
-function buildMarkRow({ line, text }) {
+function showMarkPill() {
+  const pill = $("mark-pill");
+  if (!doc?.history || document.activeElement !== editor || composing || $("toc").open) {
+    hideMarkPill();
+    return;
+  }
+  const offset = editor.selectionStart;
+  const isRange = editor.selectionEnd !== offset;
+  pill.textContent = doc.marks.some((mark) => mark.offset === offset) ? "Remove mark" : "Mark";
+  pill.hidden = false;
+  const sheet = $("note-sheet").getBoundingClientRect();
+  const note = $("note").getBoundingClientRect();
+  const start = caretBox(offset);
+  const below = caretBox(editor.selectionEnd).bottom + PILL_GAP_PX;
+  const above = start.top - pill.offsetHeight - PILL_GAP_PX;
+  // The phone's own menu sits above a selection, so a selection gets the button below it.
+  const top = isRange || above < note.top ? below : above;
+  const half = pill.offsetWidth / 2;
+  const center = Math.max(half + PILL_GAP_PX, Math.min(start.left - sheet.left, sheet.width - half - PILL_GAP_PX));
+  pill.style.insetBlockStart = `${top - sheet.top}px`;
+  pill.style.insetInlineStart = `${center - half}px`;
+}
+
+document.addEventListener("selectionchange", () => {
+  if (document.activeElement !== editor) return;
+  clearTimeout(pillTimer);
+  // The cursor moving because of typing isn't a request to mark anything.
+  if (Date.now() - lastEditAt < 300) {
+    hideMarkPill();
+    return;
+  }
+  pillTimer = setTimeout(showMarkPill, PILL_DELAY_MS);
+});
+editor.addEventListener("blur", hideMarkPill);
+
+// Pressing it on a marked spot removes the mark, so a wrong tap undoes itself.
+$("mark-pill").addEventListener("click", () => {
+  const offset = editor.selectionStart;
+  const others = doc.marks.filter((mark) => mark.offset !== offset);
+  const adding = others.length === doc.marks.length;
+  setMarks(doc, relocate(adding ? [...others, createMark(editor.value, offset)] : others, editor.value));
+  hideMarkPill();
+  showToast(adding ? "Mark added" : "Mark removed");
+});
+
+function goToMark(offset) {
+  closeChanges();
+  editor.setSelectionRange(offset, offset);
+  // Focusing the note on a phone would pop the keyboard over what the reader came to see.
+  if (matchMedia("(pointer: fine)").matches) editor.focus({ preventScroll: true });
+  const { line, column } = lineAndColumn(offset);
+  const spot = lineEls[line].querySelector(`[data-column="${column}"]`) ?? lineEls[line];
+  flyTo(spot.offsetTop - $("note").clientHeight / 3);
+}
+
+function buildMarkRow({ offset, before, after }) {
   const row = document.createElement("li");
   const go = document.createElement("button");
   go.type = "button";
   go.className = "mark-go";
-  go.textContent = text.trim() || "Blank line";
+  const { line } = lineAndColumn(offset);
+  const lead = before.split("\n").at(-1).slice(-20);
+  const rest = after.split("\n")[0].slice(0, 28);
+  const preview = document.createElement("span");
+  if (lead.trim() || rest.trim()) preview.append(lead, buildSpot(), rest);
+  else preview.textContent = "Blank line";
   const where = document.createElement("small");
-  where.textContent = `Line ${line + 1}`;
-  go.append(where);
+  const heading = paintedHeadings.findLast((candidate) => candidate.offset <= offset);
+  where.textContent = heading ? `Line ${line + 1} · ${heading.title}` : `Line ${line + 1}`;
+  go.append(preview, where);
   go.addEventListener("click", () => {
     $("toc").close();
-    goToLine(line);
+    goToMark(offset);
   });
   const remove = document.createElement("button");
   remove.type = "button";
@@ -934,9 +1374,10 @@ function buildMarkRow({ line, text }) {
   remove.setAttribute("aria-label", `Remove mark on line ${line + 1}`);
   remove.append(icon("#i-x", ""));
   remove.addEventListener("click", () => {
-    setMarks(doc, doc.marks.filter((mark) => mark.line !== line));
+    setMarks(doc, doc.marks.filter((mark) => mark.offset !== offset));
     renderMarkRows();
-    $("mark-here").focus();
+    showToast("Mark removed");
+    $("tab-marks").focus();
   });
   row.append(go, remove);
   return row;
@@ -944,15 +1385,37 @@ function buildMarkRow({ line, text }) {
 
 function renderMarkRows() {
   $("marks-list").replaceChildren(...doc.marks.map(buildMarkRow));
-  $("marks-section").hidden = doc.marks.length === 0;
+  $("marks-empty").hidden = doc.marks.length > 0;
+  $("tab-marks").textContent = doc.marks.length ? `Marks ${doc.marks.length}` : "Marks";
 }
 
-$("mark-here").addEventListener("click", () => {
-  $("toc").close();
-  setMarks(doc, relocate([...doc.marks, { line: markTarget, text: paintedLines[markTarget] }], paintedLines));
-});
+function showSheetView(view) {
+  for (const name of ["contents", "marks"]) {
+    $(`view-${name}`).hidden = name !== view;
+    $(`tab-${name}`).setAttribute("aria-pressed", String(name === view));
+  }
+  $("toc").scrollTop = 0;
+  if (view === "contents") $("toc-list").querySelector("[aria-current]")?.scrollIntoView({ block: "center" });
+}
+
+$("tab-contents").addEventListener("click", () => showSheetView("contents"));
+$("tab-marks").addEventListener("click", () => showSheetView("marks"));
+
+function buildCount(iconName, amount, label) {
+  const count = document.createElement("span");
+  count.className = "count";
+  const shown = document.createElement("span");
+  shown.setAttribute("aria-hidden", "true");
+  shown.textContent = amount;
+  const spoken = document.createElement("span");
+  spoken.className = "for-screen-readers";
+  spoken.textContent = `${label}: ${amount}`;
+  count.append(icon(iconName, ""), shown, spoken);
+  return count;
+}
 
 function goToLine(line) {
+  closeChanges();
   // Focusing the note on a phone would pop the keyboard over what the reader came to see.
   if (matchMedia("(pointer: fine)").matches) {
     const offset = paintedLines.slice(0, line).reduce((sum, text) => sum + text.length + 1, 0);
@@ -964,9 +1427,9 @@ function goToLine(line) {
 
 // ---- Contents ----
 
-function openContents() {
-  markTarget = lineToMark();
+function openContents(view = "contents") {
   renderMarkRows();
+  const markCounts = countPerHeading(paintedHeadings, doc.marks);
   const headings = paintedHeadings;
   const top = $("note").scrollTop + JUMP_GAP_PX + 1;
   const currentAt = headings.findLastIndex(({ el }) => el.offsetTop <= top);
@@ -977,7 +1440,17 @@ function openContents() {
     button.type = "button";
     button.className = `h${heading.level}`;
     button.style.setProperty("--depth", Math.min(heading.level - shallowest, 3));
-    button.textContent = heading.title;
+    button.classList.add("heading-row");
+    const title = document.createElement("span");
+    title.textContent = heading.title;
+    button.append(title);
+    if (heading.bullets || markCounts[index]) {
+      const counts = document.createElement("span");
+      counts.className = "counts";
+      if (heading.bullets) counts.append(buildCount("#i-toc", heading.bullets, "Bullet points"));
+      if (markCounts[index]) counts.append(buildCount("#i-bookmark", markCounts[index], "Marks"));
+      button.append(counts);
+    }
     if (index === currentAt) button.setAttribute("aria-current", "location");
     button.addEventListener("click", () => jumpTo(heading));
     row.append(button);
@@ -986,11 +1459,8 @@ function openContents() {
   $("toc-empty").hidden = headings.length > 0;
   $("toc-list").hidden = headings.length === 0;
   $("toc").showModal();
-  const current = $("toc-list").querySelector("[aria-current]");
-  current?.focus({ preventScroll: true });
-  // Marks sit at the top of the sheet, so scrolling to the current heading would push them out of sight.
-  if (doc.marks.length) $("toc").scrollTop = 0;
-  else current?.scrollIntoView({ block: "center" });
+  $("toc-list").querySelector("[aria-current]")?.focus({ preventScroll: true });
+  showSheetView(view);
 }
 
 function jumpTo({ line }) {
@@ -1002,6 +1472,7 @@ let flight = 0;
 
 // Same short flight at any distance: a far target starts one screen away, so the slide only shows the direction.
 function flyTo(target) {
+  closeChanges();
   const note = $("note");
   cancelAnimationFrame(flight);
   const end = Math.max(0, Math.min(target, note.scrollHeight - note.clientHeight));
@@ -1024,13 +1495,15 @@ for (const type of ["pointerdown", "wheel"]) {
   $("note").addEventListener(type, () => cancelAnimationFrame(flight), { passive: true });
 }
 
-$("toc-open").addEventListener("click", openContents);
+$("toc-open").addEventListener("click", () => openContents());
+$("marks-open").addEventListener("click", () => openContents("marks"));
 $("go-top").addEventListener("click", () => {
   $("toc").close();
   flyTo(0);
 });
 $("go-bottom").addEventListener("click", () => {
   $("toc").close();
+  closeChanges();
   const note = $("note");
   const blankBelowText = parseFloat(getComputedStyle(editor).paddingBlockEnd);
   flyTo(note.scrollHeight - blankBelowText + END_GAP_PX - note.clientHeight);
@@ -1043,7 +1516,7 @@ const scrollKey = (current) => `scroll:${current.draftKey.slice("draft:".length)
 
 function keepScroll() {
   clearTimeout(scrollTimer);
-  if (!doc || doc.base === null) return;
+  if (!doc || doc.base === null || $("note").hidden) return;
   try { localStorage.setItem(scrollKey(doc), String($("note").scrollTop)); } catch {}
 }
 
@@ -1067,6 +1540,7 @@ function replaceEditorText(next) {
   editor.setRangeText(next.slice(start, nextEnd), start, oldEnd, "preserve");
   paintNote();
   trackChange({ separate: true });
+  showChangesHint();
 }
 
 function setConflict(current, on) {
@@ -1094,11 +1568,11 @@ async function showFile(root, parts, fromHome) {
     conflict: false,
     marks: [],
     history: null,
+    reviewed: null,
   };
-  for (const el of markedEls) el.removeAttribute("data-marked");
-  markedEls = [];
+  showMarksInNote({ marks: [] });
   doc = current;
-  show("edit", parts.at(-1), [root, ...parts.slice(0, -1)]);
+  show("edit", parts.at(-1), root, parts.slice(0, -1));
   $("edit-back").href = fromHome ? "/" : pathFor(root, parts.slice(0, -1));
   $("edit-back").setAttribute("aria-label", fromHome ? "Back to home" : "Back to folder");
   $("conflict").hidden = true;
@@ -1106,7 +1580,13 @@ async function showFile(root, parts, fromHome) {
   setEditorText("");
   $("note").scrollTop = 0;
   $("toc-open").hidden = true;
+  $("marks-open").hidden = true;
+  hideMarkPill();
   showUndoButtons(null);
+  $("changes-view").hidden = true;
+  $("note").hidden = false;
+  $("changes-open").hidden = true;
+  $("changes-open").setAttribute("aria-pressed", "false");
   editor.disabled = true;
   setStatus("Opening…");
 
@@ -1132,6 +1612,7 @@ async function showFile(root, parts, fromHome) {
   setEditorText(current.saved);
   editor.disabled = false;
   $("toc-open").hidden = false;
+  $("marks-open").hidden = false;
   setStatus("Saved");
 
   const draft = readDraft(current);
@@ -1147,9 +1628,13 @@ async function showFile(root, parts, fromHome) {
   }
   loadHistory(current);
   loadMarks(current);
+  loadReviewed(current);
   restoreScroll(current);
   // A conflict warning has to stay in view, so the sheet doesn't open over it.
-  if (paintedHeadings.length >= MIN_HEADINGS_TO_AUTO_OPEN && !current.conflict) {
+  if (current.conflict) return;
+  if (hasChanges(current)) {
+    openChanges();
+  } else if (paintedHeadings.length >= MIN_HEADINGS_TO_AUTO_OPEN) {
     openContents();
     // Nobody pressed anything yet, so no button should light up with a focus ring.
     $("toc").focus({ preventScroll: true });
@@ -1235,11 +1720,15 @@ async function checkForChanges() {
 }
 
 editor.addEventListener("input", () => {
+  const textBefore = paintedText;
   noteChanged();
+  followOwnEdit(textBefore);
   trackChange();
 });
 
 function noteChanged() {
+  lastEditAt = Date.now();
+  hideMarkPill();
   paintNote();
   if (!doc) return;
   clearTimeout(draftTimer);
@@ -1273,6 +1762,7 @@ $("use-pc").addEventListener("click", async () => {
     adoptVersion(current, decoder.decode(await res.arrayBuffer()), res.headers.get("ETag"));
     setEditorText(current.saved);
     trackChange({ separate: true });
+    showChangesHint();
     clearDraft(current);
     setConflict(current, false);
     setStatus("Saved");
