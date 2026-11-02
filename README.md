@@ -10,17 +10,25 @@ A small [Bun](https://bun.com) server with no runtime dependencies and one HTML 
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/mobile-home.png" alt="Home screen with allowed folders and a Pinned section showing each file's path" width="200"></td>
+    <td><img src="docs/screenshots/mobile-home.png" alt="Home screen with folders grouped by Windows and WSL, and pinned files with their full paths" width="200"></td>
     <td><img src="docs/screenshots/mobile-folder.png" alt="Folder view with subfolders and files that can be pinned" width="200"></td>
-    <td><img src="docs/screenshots/mobile-editor.png" alt="A note open in the editor with colored headings" width="200"></td>
-    <td><img src="docs/screenshots/mobile-contents.png" alt="Contents sheet listing the note's headings, with top and bottom buttons" width="200"></td>
-    <td><img src="docs/screenshots/mobile-conflict.png" alt="Warning that the file changed on the PC, offering to keep either version" width="200"></td>
+    <td><img src="docs/screenshots/mobile-editor.png" alt="A note with colored headings, two marks in the text, and a Mark button floating at the cursor" width="200"></td>
+    <td><img src="docs/screenshots/mobile-contents.png" alt="Contents sheet with bullet point and mark counts for each heading" width="200"></td>
   </tr>
   <tr>
     <td align="center">Home</td>
     <td align="center">Folder</td>
-    <td align="center">Editor</td>
+    <td align="center">Editor and marks</td>
     <td align="center">Contents</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/mobile-marks.png" alt="Marks list showing the text around each mark, its line and its heading" width="200"></td>
+    <td><img src="docs/screenshots/mobile-changes.png" alt="Word-level diff of what changed since the last review, with Discard and Mark as reviewed buttons" width="200"></td>
+    <td><img src="docs/screenshots/mobile-conflict.png" alt="Warning that the file changed on the PC, offering to keep either version" width="200"></td>
+  </tr>
+  <tr>
+    <td align="center">Marks</td>
+    <td align="center">Changes</td>
     <td align="center">Conflict</td>
   </tr>
 </table>
@@ -29,42 +37,51 @@ A small [Bun](https://bun.com) server with no runtime dependencies and one HTML 
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/desktop-home.png" alt="Home screen on a desktop browser" width="400"></td>
-    <td><img src="docs/screenshots/desktop-folder.png" alt="Folder view on a desktop browser" width="400"></td>
+    <td><img src="docs/screenshots/desktop-home.png" alt="Home screen with folders grouped by Windows and WSL, and pinned files with their full paths" width="400"></td>
+    <td><img src="docs/screenshots/desktop-folder.png" alt="Folder view with subfolders and files that can be pinned" width="400"></td>
   </tr>
   <tr>
     <td align="center">Home</td>
     <td align="center">Folder</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/desktop-editor.png" alt="A note with colored headings on a desktop browser" width="400"></td>
-    <td><img src="docs/screenshots/desktop-contents.png" alt="Contents sheet on a desktop browser" width="400"></td>
+    <td><img src="docs/screenshots/desktop-editor.png" alt="A note with colored headings, two marks in the text, and a Mark button floating at the cursor" width="400"></td>
+    <td><img src="docs/screenshots/desktop-contents.png" alt="Contents sheet with bullet point and mark counts for each heading" width="400"></td>
   </tr>
   <tr>
-    <td align="center">Editor</td>
+    <td align="center">Editor and marks</td>
     <td align="center">Contents</td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><img src="docs/screenshots/desktop-conflict.png" alt="Conflict warning on a desktop browser" width="400"></td>
+    <td><img src="docs/screenshots/desktop-marks.png" alt="Marks list showing the text around each mark, its line and its heading" width="400"></td>
+    <td><img src="docs/screenshots/desktop-changes.png" alt="Word-level diff of what changed since the last review, with Discard and Mark as reviewed buttons" width="400"></td>
   </tr>
   <tr>
-    <td colspan="2" align="center">Conflict</td>
+    <td align="center">Marks</td>
+    <td align="center">Changes</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/desktop-conflict.png" alt="Warning that the file changed on the PC, offering to keep either version" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center">Conflict</td>
   </tr>
 </table>
 
-The notes in these screenshots are made up.
+The notes and folder paths in these screenshots are made up.
 
 ## Features
 
-- Browse folders you allow, then open, edit or create `.md` files
+- Browse folders you allow, grouped by Windows and WSL with their full paths, then open, edit or create `.md` files
 - Autosave, with a draft kept on the phone if the connection drops
 - Conflict detection through `ETag` and `If-Match`
 - Keeps BOMs and Windows line endings, and refuses files that are not UTF-8
 - Pin files to the top of their folder and to a Pinned section on the home screen (pins are stored in that browser)
-- Contents sheet built from the note's headings, with jumps to the top and bottom (opens by itself on notes with 5 or more headings)
+- Contents sheet built from the note's headings, with jumps to the top and bottom (opens by itself on notes with 5 or more headings, and shows how many bullet points and marks each heading has)
 - Colored headings that are display only, so nothing is added to the file
+- GitHub-style word diff of what an AI or another program changed since you last reviewed the note. A note with changes opens straight at the first one, with one tap to accept or discard them (text typed in that browser isn't counted)
 - Undo and redo buttons that also survive closing the tab, for when a whole block gets deleted by mistake
-- Mark several spots in a note and jump back to any of them (marks follow their line as you edit, and are stored in that browser)
+- Mark the exact cursor position from a button that floats at the cursor, and jump back from a Marks list (marks follow their character as you edit, and are stored in that browser)
 - Each note reopens where you left it, and every folder and note has its own URL
 
 ## Setup
@@ -105,3 +122,5 @@ bun test
 ## License
 
 [MIT](LICENSE)
+
+`vendor/diff.js` is a minified build of [jsdiff](https://github.com/kpdecker/jsdiff), BSD-3-Clause, see `vendor/diff.LICENSE`. Rebuild it with `bun run vendor`.
