@@ -215,6 +215,25 @@ describe("creating a file", () => {
   });
 });
 
+describe("opening a URL directly", () => {
+  it("serves the page for a note's path, without reading the note itself", async () => {
+    await writeFile(join(root, "a.md"), "private text");
+
+    const page = await handle(new Request("http://x/docs/a.md"));
+
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    expect(html).toStartWith("<!doctype html>");
+    expect(html).not.toContain("private text");
+  });
+
+  it("still answers 404 for an unknown API path", async () => {
+    const answer = await handle(new Request("http://x/api/nope"));
+
+    expect(answer.status).toBe(404);
+  });
+});
+
 describe("listing a folder", () => {
   it("shows folders and markdown files, hiding everything else", async () => {
     await writeFile(join(root, "b.md"), "");

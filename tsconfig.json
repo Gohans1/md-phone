@@ -6,6 +6,7 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noEmit": true,
+    "allowJs": true,
     "skipLibCheck": true,
     "types": ["bun"]
   },

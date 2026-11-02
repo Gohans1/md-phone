@@ -13,6 +13,7 @@
     --muted: #878580;
     --line: #282726;
     --pressed: #1C1B1A;
+    --sheet: #1C1B1A;
     --accent: #3AA99F;
     --on-accent: #100F0F;
     --selection: #164F4A;
@@ -55,11 +56,22 @@
     border-block-end: 1px solid var(--line);
   }
   #list-screen header { padding-inline-end: 4px; }
-  #list-screen h1 { padding-inline-start: 12px; }
-  #list-back:not([hidden]) + h1 { padding-inline-start: 0; }
+  #edit-screen header { padding-inline-end: 4px; }
+  #status { padding-inline-end: 4px; }
+  #list-screen .titles { padding-inline-start: 12px; }
+  #list-back:not([hidden]) + .titles { padding-inline-start: 0; }
+  .titles { flex: 1; min-width: 0; }
+  .where {
+    display: block;
+    font-size: 0.8125rem;
+    line-height: 1.3;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .where:empty { display: none; }
   h1 {
-    flex: 1;
-    min-width: 0;
     margin: 0;
     font-size: 1rem;
     font-weight: 600;
@@ -178,26 +190,113 @@
   #conflict strong { display: block; font-weight: 600; }
   #conflict div { display: flex; flex-wrap: wrap; gap: 8px; }
 
-  #editor {
-    flex: 1;
-    min-height: 0;
+  #note { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+  #note-sheet { position: relative; max-width: 42rem; margin-inline: auto; }
+  #painted, #editor {
+    display: block;
     width: 100%;
-    max-width: 42rem;
-    margin-inline: auto;
+    margin: 0;
     padding-block: 20px 40vh;
     padding-inline: 16px;
     border: 0;
+    font: 1.125rem/1.65 "Noto Serif", Georgia, serif;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+  /* The textarea takes the typing and the caret; #painted shows the same text, so colors never touch the file. */
+  #editor {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    overflow: hidden;
     outline: 0;
     resize: none;
-    color: inherit;
+    -webkit-text-fill-color: transparent;
     caret-color: var(--accent);
     background: transparent;
-    font: 1.125rem/1.65 "Noto Serif", Georgia, serif;
-    overscroll-behavior-y: contain;
   }
+  #editor::selection { background: rgb(58 169 159 / 0.35); }
+  #painted div { min-height: 1lh; }
+  .h1 { color: #D0A215; }
+  .h2 { color: #3AA99F; }
+  .h3 { color: #879A39; }
+  .h4 { color: #4385BE; }
+  .h5 { color: #8B7EC8; }
+  .h6 { color: #CE5D97; }
+
+  #toc-open {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    padding: 0;
+    color: var(--muted);
+    border: 0;
+  }
+  #toc {
+    width: 100%;
+    max-width: 42rem;
+    max-height: 70dvh;
+    margin-block: auto 0;
+    margin-inline: auto;
+    padding: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-padding-block-start: 52px;
+    color: var(--text);
+    background: var(--sheet);
+    border: 0;
+    border-start-start-radius: 16px;
+    border-start-end-radius: 16px;
+  }
+  #toc::backdrop { background: rgb(0 0 0 / 0.5); }
+  #toc-bar {
+    position: sticky;
+    z-index: 1;
+    inset-block-start: 0;
+    display: flex;
+    align-items: center;
+    padding-block: 4px;
+    padding-inline: 16px 4px;
+    background: var(--sheet);
+  }
+  #toc h2 {
+    flex: 1;
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  #toc-bar button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    padding: 0;
+    border: 0;
+  }
+  #toc-bar button:active { background: var(--line); }
+  #toc-empty { margin: 0; padding: 4px 16px 24px; color: var(--muted); }
+  #toc-list { margin: 0; padding: 0 0 12px; list-style: none; }
+  #toc-list button {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding-block: 10px;
+    padding-inline: calc(16px + var(--depth) * 16px) 16px;
+    font-weight: 400;
+    line-height: 1.35;
+    text-align: start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    border: 0;
+    border-radius: 0;
+  }
+  #toc-list button[aria-current] { background: var(--line); }
+  #toc-list button:active { background: var(--line); }
 
   @media (hover: hover) {
-    .back:hover, .rows a:hover, .pin:hover, #new-file:hover { background: var(--pressed); }
+    .back:hover, .rows a:hover, .pin:hover, #new-file:hover, #toc-open:hover { background: var(--pressed); }
+    #toc-list button:hover, #toc-bar button:hover { background: var(--line); }
   }
   @media (prefers-reduced-motion: no-preference) {
     button:not(:disabled), .back { transition: scale 150ms ease-out; }
@@ -205,6 +304,30 @@
     #conflict, #new-form {
       transition: opacity 150ms ease-out, translate 150ms ease-out;
       @starting-style { opacity: 0; translate: 0 -4px; }
+    }
+    ::view-transition { pointer-events: none; }
+    ::view-transition-group(root) { animation-duration: 200ms; }
+    ::view-transition-old(root), ::view-transition-new(root) {
+      mix-blend-mode: normal;
+      animation-duration: 200ms;
+      animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    html:active-view-transition-type(forward)::view-transition-old(root) { animation-name: to-left; }
+    html:active-view-transition-type(forward)::view-transition-new(root) { animation-name: from-right; }
+    html:active-view-transition-type(back)::view-transition-old(root) { z-index: 1; animation-name: to-right; }
+    html:active-view-transition-type(back)::view-transition-new(root) { animation-name: from-left; }
+    @keyframes to-left { to { translate: -30% 0; } }
+    @keyframes from-right { from { translate: 100% 0; } }
+    @keyframes to-right { to { translate: 100% 0; } }
+    @keyframes from-left { from { translate: -30% 0; } }
+    #toc-list button:active { scale: none; }
+    #toc[open] {
+      transition: translate 200ms cubic-bezier(0.32, 0.72, 0, 1);
+      @starting-style { translate: 0 100%; }
+    }
+    #toc[open]::backdrop {
+      transition: opacity 200ms ease-out;
+      @starting-style { opacity: 0; }
     }
   }
 </style>
@@ -215,13 +338,19 @@
   <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-toc" viewBox="0 0 24 24"><path d="M16 12H3"/><path d="M16 18H3"/><path d="M16 6H3"/><path d="M21 12h.01"/><path d="M21 18h.01"/><path d="M21 6h.01"/></symbol>
+  <symbol id="i-top" viewBox="0 0 24 24"><path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/></symbol>
+  <symbol id="i-bottom" viewBox="0 0 24 24"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
 </svg>
 
 <main id="list-screen" class="screen" hidden>
   <header>
     <a id="list-back" class="back" aria-label="Up one folder"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></a>
-    <h1 id="list-title" tabindex="-1"></h1>
+    <div class="titles">
+      <h1 id="list-title" tabindex="-1"></h1>
+      <small id="list-where" class="where"></small>
+    </div>
     <button id="new-file" type="button" aria-expanded="false" aria-controls="new-form" hidden>New file</button>
   </header>
   <form id="new-form" hidden novalidate>
@@ -245,8 +374,12 @@
 <main id="edit-screen" class="screen" hidden>
   <header>
     <a id="edit-back" class="back" aria-label="Back to folder"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></a>
-    <h1 id="edit-title" tabindex="-1"></h1>
+    <div class="titles">
+      <h1 id="edit-title" tabindex="-1"></h1>
+      <small id="edit-where" class="where"></small>
+    </div>
     <span id="status" role="status"></span>
+    <button id="toc-open" type="button" aria-label="Contents" aria-haspopup="dialog" hidden><svg class="icon" aria-hidden="true"><use href="#i-toc"/></svg></button>
   </header>
   <section id="conflict" role="alert" hidden>
     <p><strong>This file changed on the PC.</strong> Nothing was overwritten. Keep your text to replace the PC version, or use the PC version to discard your text.</p>
@@ -256,11 +389,32 @@
     </div>
   </section>
   <p id="edit-message" class="message" hidden></p>
-  <textarea id="editor" aria-labelledby="edit-title" autocapitalize="sentences" spellcheck="false" disabled></textarea>
+  <div id="note">
+    <div id="note-sheet">
+      <div id="painted" aria-hidden="true"></div>
+      <textarea id="editor" aria-labelledby="edit-title" autocapitalize="sentences" spellcheck="false" disabled></textarea>
+    </div>
+  </div>
+  <dialog id="toc" closedby="any" aria-labelledby="toc-heading">
+    <div id="toc-bar">
+      <h2 id="toc-heading">Contents</h2>
+      <button id="go-top" type="button" aria-label="Go to top"><svg class="icon" aria-hidden="true"><use href="#i-top"/></svg></button>
+      <button id="go-bottom" type="button" aria-label="Go to bottom"><svg class="icon" aria-hidden="true"><use href="#i-bottom"/></svg></button>
+    </div>
+    <p id="toc-empty" hidden>No headings yet. Start a line with # to add one.</p>
+    <ul id="toc-list"></ul>
+  </dialog>
 </main>
 
-<script>
+<script type="module">
+import { parseHeadings } from "/headings.js";
+
 const SAVE_DELAY_MS = 800;
+const JUMP_GAP_PX = 12;
+const END_GAP_PX = 48;
+const FLY_MS = 180;
+const CONTENT_WAIT_MS = 250;
+const SCROLL_DELAY_MS = 200;
 const DRAFT_DELAY_MS = 250;
 const POLL_MS = 3000;
 const OFFLINE_HELP = "Check that the PC is on and Tailscale is connected, then pull down to reload.";
@@ -274,8 +428,9 @@ let saveTimer = 0;
 let draftTimer = 0;
 let composing = false;
 
-const hashFor = (root, parts) => "#/" + [root, ...parts].map(encodeURIComponent).join("/");
-const parseHash = (hash) => hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
+const pathFor = (root, parts) => "/" + [root, ...parts].map(encodeURIComponent).join("/");
+const parsePath = (path) => path.split("/").filter(Boolean).map(decodeURIComponent);
+const whereText = (parents) => parents.join(" / ");
 const apiQuery = (root, path) => `root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`;
 
 // shortcut: pins stay in this browser and go if its site data is cleared, move them to a file on the PC if they must follow other devices.
@@ -285,7 +440,8 @@ const pins = new Set(loadPins());
 function loadPins() {
   try {
     const saved = JSON.parse(localStorage.getItem("pins"));
-    return Array.isArray(saved) ? saved : [];
+    // Pins saved before URLs became real paths start with "#".
+    return Array.isArray(saved) ? saved.map((pin) => pin.replace(/^#/, "")) : [];
   } catch {
     return [];
   }
@@ -305,12 +461,13 @@ function setStatus(text, tone = "") {
   if (status.dataset.tone !== tone) status.dataset.tone = tone;
 }
 
-function show(screen, title) {
+function show(screen, title, parents = []) {
   $("list-screen").hidden = screen !== "list";
   $("edit-screen").hidden = screen !== "edit";
   document.title = title;
   const heading = $(screen === "list" ? "list-title" : "edit-title");
   heading.textContent = title;
+  $(screen === "list" ? "list-where" : "edit-where").textContent = whereText(parents);
   heading.focus({ preventScroll: true });
 }
 
@@ -370,8 +527,8 @@ function renderItems(links, emptyText) {
 function renderPinned() {
   const rows = [...pins]
     .map((href) => {
-      const [root, ...parts] = parseHash(href);
-      return { href, isFile: true, label: parts.at(-1), hint: [root, ...parts.slice(0, -1)].join(" / ") };
+      const [root, ...parts] = parsePath(href);
+      return { href, isFile: true, label: parts.at(-1), hint: whereText([root, ...parts.slice(0, -1)]) };
     })
     .sort((a, b) => a.label.localeCompare(b.label) || a.hint.localeCompare(b.hint));
   $("pinned").replaceChildren(...rows.map(buildRow));
@@ -407,7 +564,7 @@ function closeNewForm() {
 async function showRoots() {
   folder = null;
   redrawFolder = null;
-  const openedAt = location.hash;
+  const openedAt = location.pathname;
   show("list", "MD Phone");
   $("list-back").hidden = true;
   $("new-file").hidden = true;
@@ -416,19 +573,19 @@ async function showRoots() {
   renderPinned();
   try {
     const names = await (await fetch("/api/roots")).json();
-    if (location.hash !== openedAt) return;
-    renderItems(names.map((name) => ({ href: hashFor(name, []), label: name })), "No folders are set up. Add one to roots.json on the PC.");
+    if (location.pathname !== openedAt) return;
+    renderItems(names.map((name) => ({ href: pathFor(name, []), label: name })), "No folders are set up. Add one to roots.json on the PC.");
   } catch {
-    if (location.hash === openedAt) renderItems([], `Unable to reach the PC. ${OFFLINE_HELP}`);
+    if (location.pathname === openedAt) renderItems([], `Unable to reach the PC. ${OFFLINE_HELP}`);
   }
 }
 
 async function showFolder(root, parts) {
   redrawFolder = null;
-  const openedAt = location.hash;
-  show("list", parts.at(-1) ?? root);
+  const openedAt = location.pathname;
+  show("list", parts.at(-1) ?? root, parts.length ? [root, ...parts.slice(0, -1)] : []);
   $("list-back").hidden = false;
-  $("list-back").href = parts.length ? hashFor(root, parts.slice(0, -1)) : "#/";
+  $("list-back").href = parts.length ? pathFor(root, parts.slice(0, -1)) : "/";
   $("new-file").hidden = true;
   $("pinned-section").hidden = true;
   closeNewForm();
@@ -438,8 +595,8 @@ async function showFolder(root, parts) {
     const res = await fetch(`/api/list?${apiQuery(root, parts.join("/"))}`);
     if (!res.ok) throw new Error(await res.text());
     const { dirs, files } = await res.json();
-    if (location.hash !== openedAt) return;
-    const hrefOf = (name) => hashFor(root, [...parts, name]);
+    if (location.pathname !== openedAt) return;
+    const hrefOf = (name) => pathFor(root, [...parts, name]);
     const fileRow = (name) => ({ href: hrefOf(name), label: name, isFile: true });
     redrawFolder = () => renderItems([
       ...files.filter((name) => pins.has(hrefOf(name))).map(fileRow),
@@ -449,7 +606,7 @@ async function showFolder(root, parts) {
     $("new-file").hidden = false;
     redrawFolder();
   } catch {
-    if (location.hash === openedAt) renderItems([], `Unable to open this folder. ${OFFLINE_HELP}`);
+    if (location.pathname === openedAt) renderItems([], `Unable to open this folder. ${OFFLINE_HELP}`);
   }
 }
 
@@ -483,7 +640,7 @@ $("new-form").addEventListener("submit", async (event) => {
     const res = await fetch(`/api/create?${query}`, { method: "PUT" });
     if (res.ok) {
       const { name } = await res.json();
-      location.hash = hashFor(root, [...parts, name]);
+      navigate(pathFor(root, [...parts, name]));
       return;
     }
     problem = await res.text();
@@ -531,6 +688,143 @@ function adoptVersion(current, raw, version) {
   current.saved = fromDisk(raw);
 }
 
+let paintedLines = [];
+let lineEls = [];
+let paintedHeadings = [];
+
+function buildLine(text) {
+  const el = document.createElement("div");
+  el.textContent = text;
+  return el;
+}
+
+// Runs on every keystroke, so only the lines that changed touch the DOM; a whole rebuild took 64ms at 200K characters.
+function paintNote() {
+  const text = editor.value;
+  const lines = text.split("\n");
+  const shortest = Math.min(lines.length, paintedLines.length);
+  let head = 0;
+  while (head < shortest && lines[head] === paintedLines[head]) head++;
+  let tail = 0;
+  while (tail < shortest - head && lines[lines.length - 1 - tail] === paintedLines[paintedLines.length - 1 - tail]) tail++;
+
+  const gone = lineEls.slice(head, lineEls.length - tail);
+  const fresh = lines.slice(head, lines.length - tail).map(buildLine);
+  const after = lineEls[lineEls.length - tail] ?? null;
+  const batch = document.createDocumentFragment();
+  for (const el of fresh) batch.append(el);
+  for (const el of gone) el.remove();
+  $("painted").insertBefore(batch, after);
+  lineEls = [...lineEls.slice(0, head), ...fresh, ...lineEls.slice(lineEls.length - tail)];
+  paintedLines = lines;
+
+  const next = parseHeadings(text).map((heading) => ({ ...heading, el: lineEls[heading.line] }));
+  const colored = new Set(next.map(({ el }) => el));
+  for (const { el } of paintedHeadings) if (!colored.has(el)) el.className = "";
+  for (const { el, level } of next) if (el.className !== `h${level}`) el.className = `h${level}`;
+  paintedHeadings = next;
+}
+
+function setEditorText(text) {
+  editor.value = text;
+  paintNote();
+}
+
+// ---- Contents ----
+
+function openContents() {
+  const headings = paintedHeadings;
+  const top = $("note").scrollTop + JUMP_GAP_PX + 1;
+  const currentAt = headings.findLastIndex(({ el }) => el.offsetTop <= top);
+  const shallowest = Math.min(...headings.map(({ level }) => level));
+  $("toc-list").replaceChildren(...headings.map((heading, index) => {
+    const row = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `h${heading.level}`;
+    button.style.setProperty("--depth", Math.min(heading.level - shallowest, 3));
+    button.textContent = heading.title;
+    if (index === currentAt) button.setAttribute("aria-current", "location");
+    button.addEventListener("click", () => jumpTo(heading));
+    row.append(button);
+    return row;
+  }));
+  $("toc-empty").hidden = headings.length > 0;
+  $("toc-list").hidden = headings.length === 0;
+  $("toc").showModal();
+  const current = $("toc-list").querySelector("[aria-current]");
+  current?.focus({ preventScroll: true });
+  current?.scrollIntoView({ block: "center" });
+}
+
+function jumpTo({ offset, el }) {
+  $("toc").close();
+  // Focusing the note on a phone would pop the keyboard over what the reader came to see.
+  if (matchMedia("(pointer: fine)").matches) {
+    editor.setSelectionRange(offset, offset);
+    editor.focus({ preventScroll: true });
+  }
+  flyTo(el.offsetTop - JUMP_GAP_PX);
+}
+
+let flight = 0;
+
+// Same short flight at any distance: a far target starts one screen away, so the slide only shows the direction.
+function flyTo(target) {
+  const note = $("note");
+  cancelAnimationFrame(flight);
+  const end = Math.max(0, Math.min(target, note.scrollHeight - note.clientHeight));
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    note.scrollTop = end;
+    return;
+  }
+  const start = Math.max(end - note.clientHeight, Math.min(note.scrollTop, end + note.clientHeight));
+  const startedAt = performance.now();
+  note.scrollTop = start;
+  const step = (now) => {
+    const t = Math.min(1, (now - startedAt) / FLY_MS);
+    note.scrollTop = start + (end - start) * (1 - (1 - t) ** 3);
+    if (t < 1) flight = requestAnimationFrame(step);
+  };
+  flight = requestAnimationFrame(step);
+}
+
+for (const type of ["pointerdown", "wheel"]) {
+  $("note").addEventListener(type, () => cancelAnimationFrame(flight), { passive: true });
+}
+
+$("toc-open").addEventListener("click", openContents);
+$("go-top").addEventListener("click", () => {
+  $("toc").close();
+  flyTo(0);
+});
+$("go-bottom").addEventListener("click", () => {
+  $("toc").close();
+  const note = $("note");
+  const blankBelowText = parseFloat(getComputedStyle(editor).paddingBlockEnd);
+  flyTo(note.scrollHeight - blankBelowText + END_GAP_PX - note.clientHeight);
+});
+
+// ---- Reading position, kept per note on this phone ----
+
+let scrollTimer = 0;
+const scrollKey = (current) => `scroll:${current.draftKey.slice("draft:".length)}`;
+
+function keepScroll() {
+  clearTimeout(scrollTimer);
+  if (!doc || doc.base === null) return;
+  try { localStorage.setItem(scrollKey(doc), String($("note").scrollTop)); } catch {}
+}
+
+function restoreScroll(current) {
+  try { $("note").scrollTop = Number(localStorage.getItem(scrollKey(current))) || 0; } catch {}
+}
+
+$("note").addEventListener("scroll", () => {
+  clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(keepScroll, SCROLL_DELAY_MS);
+}, { passive: true });
+
 // Replaces only the part that changed, so the cursor stays on the same words.
 function replaceEditorText(next) {
   const old = editor.value;
@@ -540,6 +834,7 @@ function replaceEditorText(next) {
   let nextEnd = next.length;
   while (oldEnd > start && nextEnd > start && old[oldEnd - 1] === next[nextEnd - 1]) { oldEnd--; nextEnd--; }
   editor.setRangeText(next.slice(start, nextEnd), start, oldEnd, "preserve");
+  paintNote();
 }
 
 function setConflict(current, on) {
@@ -551,7 +846,7 @@ function setConflict(current, on) {
 function showEditMessage(text) {
   $("edit-message").textContent = text;
   $("edit-message").hidden = !text;
-  editor.hidden = Boolean(text);
+  $("note").hidden = Boolean(text);
 }
 
 async function showFile(root, parts, fromHome) {
@@ -563,15 +858,18 @@ async function showFile(root, parts, fromHome) {
     saved: "",
     crlf: false,
     saving: false,
+    failing: false,
     conflict: false,
   };
   doc = current;
-  show("edit", parts.at(-1));
-  $("edit-back").href = fromHome ? "#/" : hashFor(root, parts.slice(0, -1));
+  show("edit", parts.at(-1), [root, ...parts.slice(0, -1)]);
+  $("edit-back").href = fromHome ? "/" : pathFor(root, parts.slice(0, -1));
   $("edit-back").setAttribute("aria-label", fromHome ? "Back to home" : "Back to folder");
   $("conflict").hidden = true;
   showEditMessage("");
-  editor.value = "";
+  setEditorText("");
+  $("note").scrollTop = 0;
+  $("toc-open").hidden = true;
   editor.disabled = true;
   setStatus("Opening…");
 
@@ -594,13 +892,14 @@ async function showFile(root, parts, fromHome) {
   const raw = decoder.decode(await res.arrayBuffer());
   if (doc !== current) return;
   adoptVersion(current, raw, res.headers.get("ETag"));
-  editor.value = current.saved;
+  setEditorText(current.saved);
   editor.disabled = false;
+  $("toc-open").hidden = false;
   setStatus("Saved");
 
   const draft = readDraft(current);
   if (draft && draft.text !== current.saved) {
-    editor.value = draft.text;
+    setEditorText(draft.text);
     if (draft.base === current.base) {
       save();
     } else {
@@ -609,6 +908,7 @@ async function showFile(root, parts, fromHome) {
   } else {
     clearDraft(current);
   }
+  restoreScroll(current);
 }
 
 async function save() {
@@ -617,7 +917,8 @@ async function save() {
   if (!current || current.base === null || current.conflict || current.saving || !isDirty(current)) return;
   const sent = editor.value;
   current.saving = true;
-  setStatus("Saving…");
+  // Failed saves retry every few seconds, and showing each attempt would make the status flicker.
+  if (!current.failing) setStatus("Saving…");
   let savedOk = false;
   try {
     const res = await fetch(current.url, {
@@ -628,6 +929,7 @@ async function save() {
     if (res.ok) {
       current.base = res.headers.get("ETag");
       current.saved = sent;
+      current.failing = false;
       savedOk = true;
       if (doc === current && !isDirty(current)) {
         clearDraft(current);
@@ -640,11 +942,13 @@ async function save() {
       }
     } else if (doc === current) {
       keepDraft(current);
-      setStatus("Not saved", "warn");
+      current.failing = true;
+      setStatus("Not saved, will retry", "warn");
     }
   } catch {
     if (doc === current) {
       keepDraft(current);
+      current.failing = true;
       setStatus("Offline, will retry", "warn");
     }
   } finally {
@@ -686,11 +990,12 @@ async function checkForChanges() {
 }
 
 editor.addEventListener("input", () => {
+  paintNote();
   if (!doc) return;
   clearTimeout(draftTimer);
   draftTimer = setTimeout(flushDraft, DRAFT_DELAY_MS);
   if (doc.conflict) return;
-  setStatus("Saving…");
+  if (!doc.failing) setStatus("Saving…");
   scheduleSave();
 });
 editor.addEventListener("compositionstart", () => { composing = true; });
@@ -715,7 +1020,7 @@ $("use-pc").addEventListener("click", async () => {
     const res = await fetchFile(current);
     if (!res.ok) throw new Error();
     adoptVersion(current, decoder.decode(await res.arrayBuffer()), res.headers.get("ETag"));
-    editor.value = current.saved;
+    setEditorText(current.saved);
     clearDraft(current);
     setConflict(current, false);
     setStatus("Saved");
@@ -726,21 +1031,56 @@ $("use-pc").addEventListener("click", async () => {
 
 // ---- Routing ----
 
-async function route(event) {
-  // A pinned file opened from home goes back to home, not up through its folders.
-  const fromHome = event && parseHash(new URL(event.oldURL).hash).length === 0;
+async function route(fromHome = false) {
+  $("toc").close();
+  cancelAnimationFrame(flight);
+  keepScroll();
   flushDraft();
   await save();
   doc = null;
-  const [root, ...rest] = parseHash(location.hash);
+  const [root, ...rest] = parsePath(location.pathname);
   if (!root) return showRoots();
   if (/\.md$/i.test(rest.at(-1) ?? "")) return showFile(root, rest, fromHome);
   return showFolder(root, rest);
 }
 
-window.addEventListener("hashchange", route);
+// Links saved before URLs became real paths look like /#/folder/note.md.
+if (location.hash.startsWith("#/")) history.replaceState(null, "", location.hash.slice(1));
+
+let currentPath = location.pathname;
+
+function changeRoute(browserAnimatesIt) {
+  const from = parsePath(currentPath).length;
+  const to = parsePath(location.pathname).length;
+  currentPath = location.pathname;
+  // A pinned file opened from home goes back to home, not up through its folders.
+  const fromHome = from === 0;
+  if (!document.startViewTransition || browserAnimatesIt || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    route(fromHome);
+    return;
+  }
+  // The slide waits for the next screen's content, but never long enough to feel stuck on a slow connection.
+  const update = () => Promise.race([route(fromHome), new Promise((done) => setTimeout(done, CONTENT_WAIT_MS))]);
+  document.startViewTransition({ update, types: [to < from ? "back" : "forward"] });
+}
+
+function navigate(path) {
+  if (path === location.pathname) return;
+  history.pushState(null, "", path);
+  changeRoute(false);
+}
+
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("a[href]");
+  if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  navigate(link.getAttribute("href"));
+});
+// Android's back gesture draws its own animation, and a second one on top would look broken.
+window.addEventListener("popstate", (event) => changeRoute(event.hasUAVisualTransition));
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    keepScroll();
     flushDraft();
     save();
   } else {

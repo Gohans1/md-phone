@@ -34,9 +34,16 @@ async function replaceFile(path: string, bytes: Uint8Array) {
       return;
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code ?? "";
-      if (attempt === 4 || !BUSY_CODES.has(code)) {
+      if (!BUSY_CODES.has(code)) {
         await unlink(temp).catch(() => {});
         throw error;
+      }
+      if (attempt === 4) {
+        // shortcut: a program in WSL holding the file open blocks replacing it from Windows for as long as it runs,
+        // so this writes in place: not atomic, but the phone keeps its draft until the save succeeds.
+        await writeFile(path, bytes);
+        await unlink(temp).catch(() => {});
+        return;
       }
       await Bun.sleep(100);
     }
@@ -102,7 +109,11 @@ async function createFile(dir: string, rawName: string) {
 export function createHandler(allowed: Record<string, string>) {
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
-    if (url.pathname === "/") return new Response(Bun.file(INDEX), { headers: { "Cache-Control": "no-cache" } });
+    if (url.pathname === "/headings.js") {
+      return new Response(Bun.file(join(import.meta.dir, "headings.js")), { headers: { "Cache-Control": "no-cache" } });
+    }
+    // Every other path is a folder or note the page routes itself, so opening its URL directly must work.
+    if (!url.pathname.startsWith("/api/")) return new Response(Bun.file(INDEX), { headers: { "Cache-Control": "no-cache" } });
     if (url.pathname === "/api/roots") return Response.json(Object.keys(allowed), { headers: NO_STORE });
 
     const isList = url.pathname === "/api/list";
