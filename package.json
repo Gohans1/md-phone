@@ -1,0 +1,11 @@
+{
+  "name": "md-phone",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun server.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
