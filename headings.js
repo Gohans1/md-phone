@@ -22,8 +22,11 @@ function bodyStart(lines) {
 export function parseHeadings(text) {
   const headings = [];
   const lines = text.split("\n");
+  // A byte order mark is kept as text, and it would hide the first line's heading or front matter.
+  const bom = lines[0].startsWith("\uFEFF");
+  if (bom) lines[0] = lines[0].slice(1);
   const first = bodyStart(lines);
-  let offset = 0;
+  let offset = bom ? 1 : 0;
   for (let i = 0; i < first; i++) offset += lines[i].length + 1;
 
   let fence = null;

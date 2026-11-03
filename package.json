@@ -4,10 +4,11 @@
   "type": "module",
   "scripts": {
     "start": "bun server.ts",
-    "vendor": "bun build scripts/diff-entry.js --format=esm --minify --outfile=vendor/diff.js"
+    "vendor": "bun build scripts/diff-entry.js --format=esm --minify --outfile=vendor/diff.js && bun build scripts/markdown-entry.js --format=esm --minify --outfile=vendor/markdown-it.js"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "diff": "9.0.0"
+    "diff": "9.0.0",
+    "markdown-it": "15.0.3"
   }
 }

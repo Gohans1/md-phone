@@ -48,6 +48,16 @@ describe("finding headings", () => {
   });
 });
 
+describe("a note that starts with a byte order mark", () => {
+  it("still finds its first heading", () => {
+    expect(titles("\uFEFF# First\n\n## Second\n")).toEqual(["First", "Second"]);
+  });
+
+  it("still skips its front matter", () => {
+    expect(titles("\uFEFF---\ntitle: x\n---\n# Real\n")).toEqual(["Real"]);
+  });
+});
+
 describe("counting bullet points", () => {
   const bullets = (text: string) => parseHeadings(text).map((h) => h.bullets);
 

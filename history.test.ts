@@ -75,6 +75,23 @@ describe("undo and redo", () => {
   });
 });
 
+describe("telling whose step it was", () => {
+  it("says a separate step came from the PC", () => {
+    const history = createHistory("a");
+    record(history, "b", 0, { separate: true });
+
+    expect(undo(history)).toMatchObject({ fromPc: true, keepsReview: false });
+  });
+
+  it("can keep a separate step of the reader's from touching the review", () => {
+    const history = createHistory("ai text");
+    record(history, "reviewed text", 0, { separate: true, keepsReview: true });
+
+    expect(undo(history)).toMatchObject({ keepsReview: true });
+    expect(redo(history)).toMatchObject({ keepsReview: true });
+  });
+});
+
 describe("grouping keystrokes into steps", () => {
   const typeAt = (history: ReturnType<typeof createHistory>, texts: string[], from: number) =>
     texts.forEach((text, i) => record(history, text, from + i * 100));

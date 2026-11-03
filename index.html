@@ -4,8 +4,46 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <meta name="theme-color" content="#100F0F">
+<link rel="preload" href="/vendor/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/vendor/fonts/inter-vietnamese-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<!-- ă, đ, ơ and ư come from this one; found only while laying out a note, it would make the browser lay the note out twice. -->
+<link rel="preload" href="/vendor/fonts/inter-latin-ext-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" href="data:,">
+<!-- Every module at once: otherwise vendor/diff.js waits for changes.js, one more trip to the PC before a note shows. -->
+<link rel="modulepreload" href="/changes.js">
+<link rel="modulepreload" href="/vendor/diff.js">
+<link rel="modulepreload" href="/headings.js">
+<link rel="modulepreload" href="/history.js">
+<link rel="modulepreload" href="/marks.js">
+<link rel="modulepreload" href="/search.js">
+<link rel="modulepreload" href="/sync.js">
 <title>MD Phone</title>
 <style>
+  /* Inter 5.3.0 from @fontsource-variable/inter, because Windows has no serif that draws Vietnamese marks well. */
+  @font-face {
+    font-family: Inter;
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url(/vendor/fonts/inter-vietnamese-wght-normal.woff2) format("woff2");
+    unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;
+  }
+  @font-face {
+    font-family: Inter;
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url(/vendor/fonts/inter-latin-ext-wght-normal.woff2) format("woff2");
+    unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+  }
+  @font-face {
+    font-family: Inter;
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url(/vendor/fonts/inter-latin-wght-normal.woff2) format("woff2");
+    unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }
   :root {
     color-scheme: dark;
     --bg: #100F0F;
@@ -25,7 +63,7 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font: 1rem/1.5 system-ui, sans-serif;
+    font: 1rem/1.5 Inter, system-ui, sans-serif;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
@@ -39,7 +77,7 @@
     stroke-linecap: round;
     stroke-linejoin: round;
   }
-  a:focus-visible, button:focus-visible, input:focus-visible {
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
   }
@@ -56,14 +94,18 @@
     border-block-end: 1px solid var(--line);
   }
   #list-screen header { padding-inline-end: 4px; }
-  #edit-screen header { padding-inline-end: 4px; }
+  #edit-screen header { gap: 0; padding-inline-end: 4px; }
+  #edit-screen #status { padding-inline-start: 4px; }
   #status { padding-inline-end: 4px; }
   /* One line only, so the header keeps its height and the note never shifts when undo appears mid-typing. */
   #edit-title { display: block; white-space: nowrap; text-overflow: ellipsis; }
   #edit-screen .titles { min-width: 28px; }
   #status[data-tone="warn"] { min-width: 72px; }
-  @media (max-width: 360px) {
-    #edit-screen .note-action, #toc-open { width: 36px; }
+  @media (max-width: 440px) {
+    #edit-screen header .note-action, #edit-screen header #toc-open { width: 38px; }
+  }
+  @media (max-width: 380px) {
+    #edit-screen header .note-action, #edit-screen header #toc-open { width: 36px; }
     #edit-screen .titles { min-width: 0; }
     #status[data-tone="warn"] { min-width: 56px; }
   }
@@ -161,6 +203,17 @@
     border-radius: 8px;
   }
   #new-name::placeholder { color: var(--muted); opacity: 1; }
+  #new-where-field { margin-block-end: 12px; }
+  #new-where {
+    width: 100%;
+    min-height: 44px;
+    padding-inline: 12px;
+    font: inherit;
+    color: inherit;
+    background: var(--bg);
+    border: 1px solid var(--muted);
+    border-radius: 8px;
+  }
   #new-error { margin-block: 8px 0; font-size: 0.875rem; color: var(--warn); }
 
   #list-body { flex: 1; min-height: 0; overflow-y: auto; padding-block-end: 24px; }
@@ -183,6 +236,8 @@
   .rows small { display: block; font-size: 0.875rem; line-height: 1.35; color: var(--muted); }
   .rows .kind { color: var(--muted); }
   .rows .is-file .kind { color: var(--accent); }
+  /* The same green as added text in a diff, and away from the pin, which is the accent color. */
+  .rows .changed { display: inline-block; width: 8px; height: 8px; margin-inline-start: 8px; vertical-align: 0.1em; border-radius: 50%; background: #A5BB4B; }
   .rows .chevron { color: var(--muted); width: 16px; height: 16px; }
   .pin {
     flex: none;
@@ -228,7 +283,7 @@
     padding-block: 20px 40vh;
     padding-inline: 16px;
     border: 0;
-    font: 1.125rem/1.65 "Noto Serif", Georgia, serif;
+    font: 1.125rem/1.65 Inter, system-ui, sans-serif;
     white-space: pre-wrap;
     overflow-wrap: break-word;
   }
@@ -246,6 +301,39 @@
   }
   #editor::selection { background: rgb(58 169 159 / 0.35); }
   #painted div { min-height: 1lh; }
+  #search-bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    padding-inline: 16px 4px;
+    border-block-end: 1px solid var(--line);
+  }
+  #search-bar[hidden] { display: none; }
+  #search-bar:focus-within { border-block-end-color: var(--accent); }
+  #search-input {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0;
+    font: inherit;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    outline: 0;
+  }
+  #search-input::placeholder { color: var(--muted); }
+  #search-count {
+    flex: none;
+    padding-inline: 8px;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  #search-bar .note-action { min-height: 44px; }
+  #search-bar .note-action:disabled { opacity: 0.4; }
+  ::highlight(search-match) { background-color: rgb(208 162 21 / 0.3); }
+  ::highlight(search-current) { background-color: #D0A215; color: #100F0F; }
   #mark-pill {
     position: absolute;
     z-index: 2;
@@ -354,6 +442,44 @@
   #toc-bar #go-top { margin-inline-start: auto; }
   #toc-bar button:active { background: var(--line); }
   #changes-view { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+  #read-toggle[aria-pressed="true"] { color: var(--accent); background: var(--pressed); }
+  /* The note as formatted Markdown, on the same measure and in the same heading colors as the editor. */
+  #read-view {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    padding: 20px max(16px, calc((100% - 42rem) / 2 + 16px)) 40vh;
+    font-size: 1.125rem;
+    line-height: 1.65;
+    overflow-wrap: break-word;
+  }
+  #read-view[hidden] { display: none; }
+  #read-view > :first-child { margin-block-start: 0; }
+  #read-view :is(h1, h2, h3, h4, h5, h6) { margin-block: 1.6em 0.5em; line-height: 1.25; font-weight: 650; text-wrap: balance; }
+  #read-view h1 { font-size: 1.6rem; color: #D0A215; letter-spacing: -0.01em; }
+  #read-view h2 { font-size: 1.35rem; color: #3AA99F; }
+  #read-view h3 { font-size: 1.15rem; color: #879A39; }
+  #read-view h4 { font-size: 1rem; color: #4385BE; }
+  #read-view h5 { font-size: 1rem; color: #8B7EC8; }
+  #read-view h6 { font-size: 1rem; color: #CE5D97; }
+  #read-view :is(p, ul, ol, blockquote, pre, table) { margin-block: 0 1em; }
+  #read-view p { text-wrap: pretty; }
+  #read-view :is(ul, ol) { padding-inline-start: 1.5em; }
+  #read-view li + li { margin-block-start: 0.25em; }
+  #read-view li > :is(ul, ol) { margin-block: 0.25em 0; }
+  #read-view a { color: var(--accent); text-underline-offset: 0.15em; text-decoration-thickness: from-font; }
+  #read-view strong { font-weight: 650; }
+  #read-view blockquote { margin-inline: 0; padding-inline-start: 1em; color: var(--muted); border-inline-start: 2px solid var(--line); }
+  #read-view code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.9em; padding: 0.1em 0.3em; background: var(--pressed); border-radius: 4px; }
+  #read-view pre { padding: 12px 16px; overflow-x: auto; background: var(--pressed); border-radius: 8px; line-height: 1.5; }
+  #read-view pre code { padding: 0; background: none; }
+  #read-view hr { margin-block: 2em; border: 0; border-block-start: 1px solid var(--line); }
+  #read-view table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.95em; font-variant-numeric: tabular-nums; }
+  #read-view :is(th, td) { padding: 6px 12px; text-align: start; border: 1px solid var(--line); }
+  #read-view th { font-weight: 650; background: var(--pressed); }
+  #read-view img { max-width: 100%; height: auto; }
   #changes-actions {
     position: sticky;
     z-index: 1;
@@ -375,18 +501,25 @@
   #changes-list { padding-block-end: 16px; }
   .hunk + .hunk { margin-block-start: 8px; }
   #changes-list .hunk-go {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
-    min-height: 40px;
-    padding-inline: 16px;
-    font-size: 0.8125rem;
-    font-weight: 400;
+    min-height: 44px;
+    padding-inline: 16px 12px;
+    font-size: 0.9375rem;
+    font-weight: 600;
     text-align: start;
-    color: var(--muted);
-    background: var(--line);
+    color: var(--accent);
+    background: rgb(58 169 159 / 0.12);
     border: 0;
     border-radius: 0;
   }
+  #changes-list .hunk-go .icon { margin-inline-start: auto; }
+  @media (hover: hover) { #changes-list .hunk-go:hover { background: rgb(58 169 159 / 0.2); } }
+  #changes-list .hunk-go:active { background: rgb(58 169 159 / 0.24); }
+  #changes-list .change { cursor: pointer; }
+  @media (hover: hover) { #changes-list .change:hover { outline: 1px solid var(--muted); outline-offset: -1px; } }
   .change { display: flex; gap: 8px; padding-block: 2px; padding-inline: 8px 16px; line-height: 1.5; }
   .change .sign { flex: none; width: 1ch; color: var(--muted); }
   .change-text { flex: 1; min-width: 0; min-height: 1lh; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -396,7 +529,15 @@
   .change.added .sign { color: #A5BB4B; }
   .change.removed .sign { color: var(--warn); }
   .change ins { text-decoration: none; background: rgb(135 154 57 / 0.42); border-radius: 2px; }
-  .change del { text-decoration: line-through; background: rgb(232 112 95 / 0.38); border-radius: 2px; }
+  .change del, #painted del { text-decoration: line-through; background: rgb(232 112 95 / 0.38); border-radius: 2px; }
+  #painted del { color: var(--text); }
+  ::highlight(just-added), ::highlight(review-added) { background-color: rgb(135 154 57 / 0.42); text-decoration: underline; }
+  ::highlight(review-fading) { background-color: rgb(135 154 57 / 0.16); }
+  #painted del.review { transition: opacity 150ms ease-out; }
+  #painted del.review.seen { opacity: 0.35; }
+  /* Struck-out text pushes the painted text away from the textarea's, so a tap is placed by the page instead. */
+  .reviewing #editor { pointer-events: none; caret-color: transparent; }
+  .reviewing #painted { cursor: text; -webkit-user-select: none; user-select: none; }
   .sheet-empty { margin: 0; padding: 12px 16px 24px; color: var(--muted); }
   .toc-rows { margin: 0; padding: 0 0 12px; list-style: none; }
   #marks-list li { display: flex; }
@@ -479,6 +620,10 @@
   <symbol id="i-redo" viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></symbol>
   <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></symbol>
   <symbol id="i-changes" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></symbol>
+  <symbol id="i-read" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
   <symbol id="i-top" viewBox="0 0 24 24"><path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/></symbol>
   <symbol id="i-bottom" viewBox="0 0 24 24"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></symbol>
@@ -495,6 +640,10 @@
     <button id="new-file" type="button" aria-expanded="false" aria-controls="new-form" hidden>New file</button>
   </header>
   <form id="new-form" hidden novalidate>
+    <div id="new-where-field" hidden>
+      <label for="new-where">Folder</label>
+      <select id="new-where"></select>
+    </div>
     <label for="new-name">File name</label>
     <div class="new-row">
       <input id="new-name" name="filename" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="notes.md" aria-describedby="new-error">
@@ -524,11 +673,20 @@
     <button id="undo" class="note-action" type="button" aria-label="Undo" hidden><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg></button>
     <button id="redo" class="note-action" type="button" aria-label="Redo" hidden><svg class="icon" aria-hidden="true"><use href="#i-redo"/></svg></button>
     <button id="changes-open" class="note-action" type="button" aria-label="Changes" aria-pressed="false" hidden><svg class="icon" aria-hidden="true"><use href="#i-changes"/></svg></button>
+    <button id="read-toggle" class="note-action" type="button" aria-label="Read" aria-pressed="false" hidden><svg class="icon" aria-hidden="true"><use href="#i-read"/></svg></button>
+    <button id="search-open" class="note-action" type="button" aria-label="Find in this note" aria-keyshortcuts="Control+F" hidden><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
     <button id="marks-open" class="note-action" type="button" aria-label="Marks" aria-haspopup="dialog" hidden><svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg></button>
     <button id="toc-open" type="button" aria-label="Contents" aria-haspopup="dialog" hidden><svg class="icon" aria-hidden="true"><use href="#i-toc"/></svg></button>
   </header>
+  <search id="search-bar" hidden>
+    <input id="search-input" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Find" aria-label="Find in this note">
+    <span id="search-count" role="status"></span>
+    <button id="search-previous" class="note-action" type="button" aria-label="Previous match" disabled><svg class="icon" aria-hidden="true"><use href="#i-up"/></svg></button>
+    <button id="search-next" class="note-action" type="button" aria-label="Next match" disabled><svg class="icon" aria-hidden="true"><use href="#i-down"/></svg></button>
+    <button id="search-close" class="note-action" type="button" aria-label="Close search"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </search>
   <section id="conflict" role="alert" hidden>
-    <p><strong>This file changed on the PC.</strong> Nothing was overwritten. Keep your text to replace the PC version, or use the PC version to discard your text.</p>
+    <p><strong id="conflict-title">This file changed on the PC.</strong> Nothing was overwritten. Keep your text to replace the PC version, or use the PC version to discard your text.</p>
     <div>
       <button id="keep-mine" type="button">Keep my text</button>
       <button id="use-pc" type="button">Use PC version</button>
@@ -542,6 +700,7 @@
       <button id="mark-pill" type="button" hidden>Mark</button>
     </div>
   </div>
+  <article id="read-view" aria-label="Formatted note" hidden></article>
   <section id="changes-view" aria-label="Changes since your last review" hidden>
     <div id="changes-actions">
       <span id="changes-count"></span>
@@ -571,25 +730,39 @@
 
 <script type="module">
 import { parseHeadings } from "/headings.js";
-import { applyOwnEdit, buildHunks } from "/changes.js";
+import { applyOwnEdit, buildHunks, lookAt, readingTime, rebuiltChanges, reviewWithSeen, undoIntoReview } from "/changes.js";
 import { createHistory, diff, hashText, record, redo, undo } from "/history.js";
-import { countPerHeading, createMark, followEdit, relocate } from "/marks.js";
+import { countPerHeading, createMark, followEdit, markId, relocate } from "/marks.js";
+import { findMatches } from "/search.js";
+import { mergeState } from "/sync.js";
 
 const SAVE_DELAY_MS = 800;
 const JUMP_GAP_PX = 12;
+const READ_MODE_KEY = "read-mode";
 const END_GAP_PX = 48;
 const FLY_MS = 180;
 const CONTENT_WAIT_MS = 250;
 const SCROLL_DELAY_MS = 200;
 const HISTORY_DELAY_MS = 500;
-const MIN_HEADINGS_TO_AUTO_OPEN = 5;
-const MAX_REVIEWED_NOTES = 20;
-const MAX_REVIEWED_CHARS = 100_000;
+const STATE_WAIT_MS = 1000;
+const STATE_WRITE_TRIES = 5;
+const FONT_WAIT_MS = 1000;
+const DRAFT_AUTOSAVE_MS = 10 * 60 * 1000;
+const MAX_TRIED_TEXTS = 5;
+const SEARCH_DELAY_MS = 100;
+// Typing in the note while Find is open refolds the whole note, so that waits for a real pause.
+const SEARCH_WHILE_TYPING_MS = 500;
+const MAX_PAINTED_MATCHES = 1000;
+const READ_TIMEOUT_MS = 10_000;
+const WRITE_TIMEOUT_MS = 30_000;
 const TOAST_MS = 1800;
-const CHANGE_GAP_PX = 64;
+const SEEN_CHECK_MS = 200;
+// The server refuses an address past about 16 KB.
+const MAX_CHECK_QUERY = 8000;
 const PILL_DELAY_MS = 120;
 const PILL_GAP_PX = 8;
-const DRAFT_DELAY_MS = 250;
+// A draft write copies the whole note into storage, which is slow on long notes, so it waits for a real pause.
+const DRAFT_DELAY_MS = 1000;
 const POLL_MS = 3000;
 const OFFLINE_HELP = "Check that the PC is on and Tailscale is connected, then pull down to reload.";
 
@@ -610,16 +783,23 @@ let rootsLoading = null;
 let rootsByName = new Map();
 
 function loadRoots() {
-  rootsLoading ??= fetch("/api/roots")
+  if (rootsLoading) return rootsLoading;
+  const asked = fetch("/api/roots")
     .then((res) => res.json())
     .then((roots) => {
       rootsByName = new Map(roots.map((root) => [root.name, root]));
+      rememberSeen("roots", roots);
+      rootsLoading = Promise.resolve(roots);
       return roots;
     })
     .catch((error) => {
       rootsLoading = null;
       throw error;
     });
+  const known = recallSeen("roots");
+  if (known) rootsByName = new Map(known.map((root) => [root.name, root]));
+  rootsLoading = known ? Promise.resolve(known) : asked;
+  asked.catch(() => {});
   return rootsLoading;
 }
 
@@ -632,24 +812,144 @@ function fullPath(root, parts) {
 }
 const apiQuery = (root, path) => `root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`;
 
-// shortcut: pins stay in this browser and go if its site data is cleared, move them to a file on the PC if they must follow other devices.
 let redrawFolder = null;
-const pins = new Set(loadPins());
+const pins = new Set(recallSeen("pins") ?? []);
 
-function loadPins() {
+let pinSending = Promise.resolve();
+
+// One at a time, so a quick pin and unpin can't reach the PC in the wrong order.
+// Pins sent but not answered yet, so a list fetched meanwhile doesn't drop them.
+const pinsInFlight = new Map();
+
+function sendPin(href, pinned) {
+  pinsInFlight.set(href, pinned);
+  const sent = pinSending.then(() => fetch(`/api/pins?pin=${encodeURIComponent(href)}`, { method: pinned ? "PUT" : "DELETE", signal: AbortSignal.timeout(WRITE_TIMEOUT_MS) }));
+  const settled = sent.catch(() => {});
+  pinSending = settled;
+  void settled.then(() => {
+    if (pinsInFlight.get(href) === pinned) pinsInFlight.delete(href);
+  });
+  return sent;
+}
+
+// Pins used to live in each browser. The key goes only after the server has them all, so a dropped connection loses none.
+async function moveBrowserPinsToServer() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem("pins")); } catch {}
+  if (!Array.isArray(saved)) return;
+  for (const pin of saved) {
+    // Pins saved before URLs became real paths start with "#". A pin of a folder no longer set up gets a 400 and is dropped.
+    const res = await sendPin(pin.replace(/^#/, ""), true);
+    if (res.status >= 500) throw new Error();
+  }
+  localStorage.removeItem("pins");
+}
+
+// Offline, the last known pins stay on screen.
+async function refreshPins() {
   try {
-    const saved = JSON.parse(localStorage.getItem("pins"));
-    // Pins saved before URLs became real paths start with "#".
-    return Array.isArray(saved) ? saved.map((pin) => pin.replace(/^#/, "")) : [];
+    await moveBrowserPinsToServer();
+    // Only briefly: a dead connection must not hold the list up.
+    await Promise.race([pinSending, new Promise((done) => setTimeout(done, STATE_WAIT_MS))]);
+    const res = await fetch("/api/pins", { signal: AbortSignal.timeout(READ_TIMEOUT_MS) });
+    if (!res.ok) return;
+    const saved = await res.json();
+    pins.clear();
+    for (const pin of saved) pins.add(pin);
+    for (const [href, pinned] of pinsInFlight) {
+      if (pinned) pins.add(href);
+      else pins.delete(href);
+    }
+    rememberSeen("pins", [...pins]);
+  } catch {}
+}
+
+// The last text, listing, folders and pins seen, so a note or folder shows at once, even right after the app opens,
+// while the PC is asked again. This browser's storage already holds unsent drafts; the biggest notes are left out of it.
+const SEEN_KEEP = 16;
+const SEEN_MAX_CHARS = 400_000;
+// Well under the ~5M characters a browser allows per site, so a draft always has room.
+const SEEN_TOTAL_CHARS = 2_000_000;
+
+const seenKeys = () => {
+  try {
+    return JSON.parse(localStorage.getItem("seen:keys")) ?? [];
   } catch {
     return [];
   }
+};
+
+function rememberSeen(key, value) {
+  const older = seenKeys().filter((known) => known !== key);
+  try {
+    const text = JSON.stringify(value);
+    if (text.length > SEEN_MAX_CHARS) {
+      localStorage.removeItem(`seen:${key}`);
+      localStorage.setItem("seen:keys", JSON.stringify(older));
+      return;
+    }
+    const kept = [key];
+    let total = text.length;
+    for (const known of older.toReversed()) {
+      const size = localStorage.getItem(`seen:${known}`)?.length ?? 0;
+      if (kept.length < SEEN_KEEP && total + size <= SEEN_TOTAL_CHARS) {
+        kept.unshift(known);
+        total += size;
+      } else localStorage.removeItem(`seen:${known}`);
+    }
+    localStorage.setItem(`seen:${key}`, text);
+    localStorage.setItem("seen:keys", JSON.stringify(kept));
+  } catch {}
+}
+
+function forgetSeen() {
+  try {
+    for (const key of seenKeys()) localStorage.removeItem(`seen:${key}`);
+    localStorage.removeItem("seen:keys");
+  } catch {}
+}
+
+function recallSeen(key) {
+  try {
+    return JSON.parse(localStorage.getItem(`seen:${key}`));
+  } catch {
+    return null;
+  }
+}
+
+// The slide to a new screen starts as soon as that screen has something to show.
+let markScreenReady = () => {};
+
+let changedPins = new Set();
+let folderChanged = new Set();
+
+let pinsTurn = 0;
+let folderTurn = 0;
+
+// Polls can overlap on a slow link, so only the newest answer is kept.
+async function refreshChangedPins() {
+  if (!pins.size) return;
+  const turn = ++pinsTurn;
+  const batches = [[]];
+  for (const pin of pins) {
+    const part = `note=${encodeURIComponent(pin)}`;
+    if (batches.at(-1).join("&").length + part.length > MAX_CHECK_QUERY) batches.push([]);
+    batches.at(-1).push(part);
+  }
+  try {
+    const answers = await Promise.all(batches.map(async (batch) => {
+      const query = batch.join("&");
+      const res = await fetch(`/api/changed?${query}`, { signal: AbortSignal.timeout(READ_TIMEOUT_MS) });
+      if (!res.ok) throw new Error();
+      return res.json();
+    }));
+    if (turn === pinsTurn) changedPins = new Set(answers.flat());
+  } catch {}
 }
 
 function togglePin(href) {
   const pinned = !pins.delete(href);
   if (pinned) pins.add(href);
-  try { localStorage.setItem("pins", JSON.stringify([...pins])); } catch {}
   return pinned;
 }
 
@@ -694,7 +994,47 @@ function icon(name, className) {
   return svg;
 }
 
-function buildRow({ href, label, isFile, hint }) {
+function buildDot() {
+  const dot = document.createElement("span");
+  dot.className = "changed";
+  const spoken = document.createElement("span");
+  spoken.className = "for-screen-readers";
+  spoken.textContent = "Changed since you last read it";
+  dot.append(spoken);
+  return dot;
+}
+
+function showDots(list, changed) {
+  for (const row of list.children) {
+    const label = row.querySelector(".is-file > span");
+    const dot = label?.querySelector(".changed");
+    if (!label || Boolean(dot) === changed.has(row.dataset.key)) continue;
+    if (dot) dot.remove();
+    else label.firstChild.after(buildDot());
+  }
+}
+
+// The AI keeps writing while a list is open, so its dots follow without a reload.
+async function refreshDots() {
+  const openedAt = location.pathname;
+  if (!folder) {
+    await refreshChangedPins();
+    if (location.pathname === openedAt) showDots($("pinned"), changedPins);
+    return;
+  }
+  const { root, parts } = folder;
+  const turn = ++folderTurn;
+  try {
+    const res = await fetch(`/api/list?${apiQuery(root, parts.join("/"))}`, { signal: AbortSignal.timeout(READ_TIMEOUT_MS) });
+    if (!res.ok || location.pathname !== openedAt || turn !== folderTurn) return;
+    const { changed = [] } = await res.json();
+    if (location.pathname !== openedAt || turn !== folderTurn) return;
+    folderChanged = new Set(changed.map((name) => pathFor(root, [...parts, name])));
+    showDots($("items"), folderChanged);
+  } catch {}
+}
+
+function buildRow({ href, label, isFile, hint, changed }) {
   const row = document.createElement("li");
   row.dataset.key = href;
   const link = document.createElement("a");
@@ -702,6 +1042,7 @@ function buildRow({ href, label, isFile, hint }) {
   if (isFile) link.className = "is-file";
   const text = document.createElement("span");
   text.textContent = label;
+  if (changed) text.append(buildDot());
   if (hint) {
     const where = document.createElement("small");
     where.textContent = hint;
@@ -721,9 +1062,18 @@ function buildPinButton(href, name) {
   button.setAttribute("aria-label", `Pin ${name}`);
   button.setAttribute("aria-pressed", String(pins.has(href)));
   button.append(icon("#i-pin", ""));
-  button.addEventListener("click", () => {
-    button.setAttribute("aria-pressed", String(togglePin(href)));
+  const flip = () => {
+    const pinned = togglePin(href);
+    button.setAttribute("aria-pressed", String(pinned));
     if (redrawFolder) moveRows(redrawFolder, href);
+    return pinned;
+  };
+  button.addEventListener("click", async () => {
+    const pinned = flip();
+    const saved = await sendPin(href, pinned).then((res) => res.ok, () => false);
+    if (saved) return;
+    flip();
+    showToast("Pin not saved. Check the connection to the PC.");
   });
   return button;
 }
@@ -739,7 +1089,7 @@ function renderPinned() {
   const rows = [...pins]
     .map((href) => {
       const [root, ...parts] = parsePath(href);
-      return { href, isFile: true, label: parts.at(-1), hint: fullPath(root, parts) };
+      return { href, isFile: true, label: parts.at(-1), hint: fullPath(root, parts), changed: changedPins.has(href) };
     })
     .sort((a, b) => a.label.localeCompare(b.label) || a.hint.localeCompare(b.hint));
   $("pinned").replaceChildren(...rows.map(buildRow));
@@ -779,21 +1129,45 @@ async function showRoots() {
   show("list", "MD Phone");
   $("list-back").hidden = true;
   $("new-file").hidden = true;
+  $("new-where-field").hidden = true;
   closeNewForm();
   renderItems([], "Opening…");
   $("root-groups").replaceChildren();
   $("pinned-section").hidden = true;
+  const pinsLoading = refreshPins();
   try {
     const roots = await loadRoots();
     if (location.pathname !== openedAt) return;
     renderItems([], "No folders are set up. Add one to roots.json on the PC.");
     $("message").hidden = roots.length > 0;
     renderRootGroups(roots);
+    showHomeNewFile(roots);
   } catch {
     if (location.pathname !== openedAt) return;
     renderItems([], `Unable to reach the PC. ${OFFLINE_HELP}`);
   }
   renderPinned();
+  markScreenReady();
+  await pinsLoading;
+  if (location.pathname !== openedAt) return;
+  renderPinned();
+  refreshDots();
+}
+
+// A new note from the home screen goes to the root named "desktop" unless another folder is picked.
+const HOME_NEW_FILE_ROOT = "desktop";
+
+function showHomeNewFile(roots) {
+  if (!roots.length) return;
+  $("new-where").replaceChildren(...roots.map(({ name, path }) => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = `${name} (${path})`;
+    return option;
+  }));
+  $("new-where").value = roots.some(({ name }) => name === HOME_NEW_FILE_ROOT) ? HOME_NEW_FILE_ROOT : roots[0].name;
+  $("new-where-field").hidden = false;
+  $("new-file").hidden = false;
 }
 
 function renderRootGroups(roots) {
@@ -822,27 +1196,41 @@ async function showFolder(root, parts) {
   $("list-back").hidden = false;
   $("list-back").href = parts.length ? pathFor(root, parts.slice(0, -1)) : "/";
   $("new-file").hidden = true;
+  $("new-where-field").hidden = true;
   $("pinned-section").hidden = true;
   closeNewForm();
   folder = { root, parts };
-  renderItems([], "Opening…");
+  const query = apiQuery(root, parts.join("/"));
+  const shown = recallSeen(`list:${query}`);
+  if (shown) renderFolder(root, parts, shown);
+  else renderItems([], "Opening…");
   try {
-    const res = await fetch(`/api/list?${apiQuery(root, parts.join("/"))}`);
+    // Newer than any dots poll still in flight for this folder.
+    folderTurn++;
+    const [res] = await Promise.all([fetch(`/api/list?${query}`), refreshPins()]);
     if (!res.ok) throw new Error(await res.text());
-    const { dirs, files } = await res.json();
+    const listing = await res.json();
     if (location.pathname !== openedAt) return;
-    const hrefOf = (name) => pathFor(root, [...parts, name]);
-    const fileRow = (name) => ({ href: hrefOf(name), label: name, isFile: true });
-    redrawFolder = () => renderItems([
-      ...files.filter((name) => pins.has(hrefOf(name))).map(fileRow),
-      ...dirs.map((name) => ({ href: hrefOf(name), label: name })),
-      ...files.filter((name) => !pins.has(hrefOf(name))).map(fileRow),
-    ], "No markdown files here yet. Tap New file to add one.");
-    $("new-file").hidden = false;
-    redrawFolder();
+    rememberSeen(`list:${query}`, listing);
+    renderFolder(root, parts, listing);
   } catch {
-    if (location.pathname === openedAt) renderItems([], `Unable to open this folder. ${OFFLINE_HELP}`);
+    if (location.pathname === openedAt && !shown) renderItems([], `Unable to open this folder. ${OFFLINE_HELP}`);
+    markScreenReady();
   }
+}
+
+function renderFolder(root, parts, { dirs, files, changed = [] }) {
+  const hrefOf = (name) => pathFor(root, [...parts, name]);
+  folderChanged = new Set(changed.map(hrefOf));
+  const fileRow = (name) => ({ href: hrefOf(name), label: name, isFile: true, changed: folderChanged.has(hrefOf(name)) });
+  redrawFolder = () => renderItems([
+    ...files.filter((name) => pins.has(hrefOf(name))).map(fileRow),
+    ...dirs.map((name) => ({ href: hrefOf(name), label: name })),
+    ...files.filter((name) => !pins.has(hrefOf(name))).map(fileRow),
+  ], "No markdown files here yet. Tap New file to add one.");
+  $("new-file").hidden = false;
+  redrawFolder();
+  markScreenReady();
 }
 
 $("new-file").addEventListener("click", () => {
@@ -859,7 +1247,8 @@ $("new-file").addEventListener("click", () => {
   $("new-name").focus();
 });
 
-$("new-name").addEventListener("keydown", (event) => {
+// From the name or the folder picker; an open picker takes its own Escape first.
+$("new-form").addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   closeNewForm();
   $("new-file").focus();
@@ -867,7 +1256,8 @@ $("new-name").addEventListener("keydown", (event) => {
 
 $("new-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const { root, parts } = folder;
+  const fromHome = !folder;
+  const { root, parts } = folder ?? { root: $("new-where").value, parts: [] };
   let problem;
   $("new-create").disabled = true;
   try {
@@ -875,7 +1265,20 @@ $("new-form").addEventListener("submit", async (event) => {
     const res = await fetch(`/api/create?${query}`, { method: "PUT" });
     if (res.ok) {
       const { name } = await res.json();
-      navigate(pathFor(root, [...parts, name]));
+      const href = pathFor(root, [...parts, name]);
+      // Pinned, or a note made from the home screen would only be found by opening its folder.
+      if (fromHome && !pins.has(href)) {
+        togglePin(href);
+        sendPin(href, true)
+          .then((res) => {
+            if (!res.ok) throw new Error();
+          })
+          .catch(() => {
+            pins.delete(href);
+            showToast(`Note created, but not pinned. Find it in the ${root} folder.`);
+          });
+      }
+      navigate(href);
       return;
     }
     problem = await res.text();
@@ -894,9 +1297,16 @@ $("new-form").addEventListener("submit", async (event) => {
 
 function keepDraft(current) {
   clearTimeout(draftTimer);
+  const draft = JSON.stringify({ text: editor.value, base: current.base, at: Date.now(), conflict: current.conflict });
   try {
-    localStorage.setItem(current.draftKey, JSON.stringify({ text: editor.value, base: current.base }));
-  } catch {}
+    localStorage.setItem(current.draftKey, draft);
+  } catch {
+    // Unsent text matters more than the copies kept for opening fast.
+    forgetSeen();
+    try {
+      localStorage.setItem(current.draftKey, draft);
+    } catch {}
+  }
 }
 function clearDraft(current) {
   clearTimeout(draftTimer);
@@ -905,8 +1315,20 @@ function clearDraft(current) {
 function readDraft(current) {
   try { return JSON.parse(localStorage.getItem(current.draftKey)); } catch { return null; }
 }
+// The save finished, maybe after leaving the note, so what's kept must not look unsaved or based on the older version.
+function settleDraft(current, sent) {
+  const draft = readDraft(current);
+  if (!draft) return;
+  try {
+    if (draft.text === sent) localStorage.removeItem(current.draftKey);
+    else localStorage.setItem(current.draftKey, JSON.stringify({ ...draft, base: current.base }));
+  } catch {}
+}
+
 function flushDraft() {
-  if (doc && doc.base !== null && isDirty(doc)) keepDraft(doc);
+  if (!doc || doc.base === null) return;
+  if (isDirty(doc)) keepDraft(doc);
+  else clearDraft(doc);
 }
 
 // ---- Editor ----
@@ -915,9 +1337,10 @@ const isDirty = (current) => editor.value !== current.saved;
 // A textarea always reports "\n", so a Windows file gets its "\r\n" back on save.
 const toDisk = (current, text) => (current.crlf ? text.replace(/\n/g, "\r\n") : text);
 const fromDisk = (text) => text.replace(/\r\n?/g, "\n");
-const fetchFile = (current, headers = {}) => fetch(current.url, { cache: "no-store", headers });
+const fetchFile = (current, headers = {}) => fetch(current.url, { cache: "no-store", headers, signal: AbortSignal.timeout(READ_TIMEOUT_MS) });
 
 function adoptVersion(current, raw, version) {
+  current.triedTexts = [];
   current.base = version;
   current.crlf = raw.includes("\r\n");
   current.saved = fromDisk(raw);
@@ -936,6 +1359,8 @@ function buildLine(text) {
 
 // Runs on every keystroke, so only the lines that changed touch the DOM; a whole rebuild took 64ms at 200K characters.
 function paintNote() {
+  clearStepDiff();
+  clearReviewDiff();
   const text = editor.value;
   const lines = text.split("\n");
   const shortest = Math.min(lines.length, paintedLines.length);
@@ -953,6 +1378,7 @@ function paintNote() {
   $("painted").insertBefore(batch, after);
   lineEls = [...lineEls.slice(0, head), ...fresh, ...lineEls.slice(lineEls.length - tail)];
   paintedLines = lines;
+  lineStarts = null;
   const previousText = paintedText;
   paintedText = text;
 
@@ -966,6 +1392,8 @@ function paintNote() {
     if (followed !== doc.marks) setMarks(doc, followed);
     else showMarksInNote(doc);
   }
+  refreshSearchSoon();
+  refreshReadingSoon();
 }
 
 function setEditorText(text) {
@@ -973,7 +1401,7 @@ function setEditorText(text) {
   paintNote();
 }
 
-// ---- Changes since the last review, compared with a copy kept per note on this phone ----
+// ---- Changes since the last review, compared with the reviewed copy kept on the PC ----
 
 const reviewedKey = (current) => `reviewed:${current.draftKey.slice("draft:".length)}`;
 const hasChanges = (current) => current?.reviewed !== null && current?.reviewed !== undefined && current.reviewed !== editor.value;
@@ -982,6 +1410,8 @@ let noteScrollBeforeChanges = 0;
 const changesOpen = () => !$("changes-view").hidden;
 
 function showChangesHint() {
+  // Hiding the button that has focus would drop a keyboard user's place to the page itself.
+  if (!hasChanges(doc) && document.activeElement === $("changes-open")) $("edit-title").focus({ preventScroll: true });
   $("changes-open").hidden = !hasChanges(doc);
   if (!changesOpen()) return;
   if (hasChanges(doc)) renderChanges();
@@ -990,6 +1420,9 @@ function showChangesHint() {
 
 function openChanges() {
   if (!hasChanges(doc) || changesOpen()) return;
+  closeReading({ remember: false });
+  clearReviewDiff();
+  closeSearch({ moveFocus: false });
   keepScroll();
   noteScrollBeforeChanges = $("note").scrollTop;
   hideMarkPill();
@@ -998,36 +1431,23 @@ function openChanges() {
   $("changes-open").setAttribute("aria-pressed", "true");
   renderChanges();
   const first = $("changes-view").querySelector(".change.added, .change.removed");
-  if (first) $("changes-view").scrollTop = first.offsetTop - $("changes-actions").offsetHeight - CHANGE_GAP_PX;
+  if (first) $("changes-view").scrollTop = first.closest(".hunk").offsetTop - $("changes-actions").offsetHeight;
 }
 
 function closeChanges() {
   if (!changesOpen()) return;
+  // Mark as reviewed and Discard close this view while they still have focus.
+  if ($("changes-view").contains(document.activeElement)) ($("changes-open").hidden ? $("edit-title") : $("changes-open")).focus({ preventScroll: true });
   $("changes-view").hidden = true;
   $("note").hidden = false;
   $("changes-open").setAttribute("aria-pressed", "false");
   $("note").scrollTop = noteScrollBeforeChanges;
+  showReviewDiff();
 }
 
 $("changes-open").addEventListener("click", () => (changesOpen() ? closeChanges() : openChanges()));
 
-// Copies are big, and running out of room here must never cost the phone its unsaved drafts.
-function keepReviewed(current) {
-  if (!current || current.reviewed === null) return;
-  try {
-    const key = reviewedKey(current);
-    let order = JSON.parse(localStorage.getItem("reviewed-order")) ?? [];
-    order = [...order.filter((other) => other !== key), key];
-    for (const old of order.splice(0, Math.max(0, order.length - MAX_REVIEWED_NOTES))) localStorage.removeItem(old);
-    if (current.reviewed.length > MAX_REVIEWED_CHARS) localStorage.removeItem(key);
-    else localStorage.setItem(key, current.reviewed);
-    localStorage.setItem("reviewed-order", JSON.stringify(order));
-  } catch {}
-}
-
-function loadReviewed(current) {
-  let stored = null;
-  try { stored = localStorage.getItem(reviewedKey(current)); } catch {}
+function loadReviewed(current, stored) {
   // A draft is your own text, so it never counts as a change to review.
   const base = stored ?? current.saved;
   current.reviewed = base === current.saved ? editor.value : base;
@@ -1078,86 +1498,694 @@ function renderChanges() {
     const go = document.createElement("button");
     go.type = "button";
     go.className = "hunk-go";
-    go.textContent = `Go to line ${line}`;
-    go.addEventListener("click", () => {
-      goToLine(Math.min(line, lineEls.length) - 1);
+    go.append(`Go to line ${Math.min(line, lineEls.length)}`, icon("#i-next", ""));
+    // Removed rows all carry the line they sat before, so each also needs its place in that run.
+    let run = 0;
+    const els = rows.map((row, index) => {
+      const nth = row.kind === "removed" && rows[index - 1]?.kind === "removed" ? ++run : (run = 0);
+      const el = buildChangeRow(row);
+      el.addEventListener("click", () => {
+        // Selecting text to copy ends in a click too.
+        if (!getSelection().isCollapsed) return;
+        showRowInNote(row, nth, el.getBoundingClientRect().top);
+      });
+      return { row, nth, el };
     });
-    hunk.append(go, ...rows.map(buildChangeRow));
+    go.addEventListener("click", () => {
+      const first = els.find(({ row }) => row.kind !== "same");
+      showRowInNote(first.row, first.nth, first.el.getBoundingClientRect().top);
+    });
+    hunk.append(go, ...els.map(({ el }) => el));
     return hunk;
   }));
 }
 
 $("mark-reviewed").addEventListener("click", () => {
   doc.reviewed = editor.value;
-  keepReviewed(doc);
+  doc.reviewConfirmed = true;
+  doc.stateDirty = true;
+  pushState(doc);
   showChangesHint();
   showToast("Marked as reviewed");
 });
 
 // Undo brings the changes back, so this needs no confirmation.
 $("discard-changes").addEventListener("click", () => {
-  closeChanges();
   editor.setRangeText(doc.reviewed, 0, editor.value.length, "start");
+  closeChanges();
   noteChanged();
-  trackChange({ separate: true });
+  trackChange({ separate: true, keepsReview: true });
   showChangesHint();
   showToast("Changes discarded. Undo brings them back.");
 });
 
-// ---- Undo and redo, kept per note on this phone so they survive Android closing the tab ----
+// ---- Marks, undo steps and the reviewed copy, stored on the PC so every device shares them ----
 
-let historyTimer = 0;
-const historyKey = (current) => `undo:${current.draftKey.slice("draft:".length)}`;
+let stateTimer = 0;
+const stateUrl = (current, kind) => `/api/state?kind=${kind}&note=${encodeURIComponent(current.href)}`;
+const localKeys = (current) => ["marks", "undo", "reviewed", "scroll"].map((kind) => `${kind}:${current.draftKey.slice("draft:".length)}`);
 
 function showUndoButtons(history) {
   $("undo").hidden = !history?.done.length;
   $("redo").hidden = !history?.undone.length;
 }
 
-function keepHistory(current) {
-  clearTimeout(historyTimer);
+function scheduleState(current) {
   if (!current?.history) return;
-  keepReviewed(current);
+  current.stateDirty = true;
+  clearTimeout(stateTimer);
+  stateTimer = setTimeout(() => pushState(current), HISTORY_DELAY_MS);
+}
+
+function stateNow(current) {
   const { done, undone, text } = current.history;
+  return { marks: current.marks, removedMarks: current.removedMarks, reviewed: current.reviewed, reviewConfirmed: current.reviewConfirmed, history: { done: [...done], undone: [...undone], hash: hashText(text) } };
+}
+
+// Undo steps and the review only make sense for their own text. For other text, they wait until that text arrives here.
+function applyMerged(current, merged) {
+  setMarks(current, relocate(merged.marks, editor.value), { share: false });
+  if (merged.history.hash !== hashText(editor.value)) {
+    if (merged.history.hash === current.synced?.remote.history.hash) applyReview(current, merged);
+    return;
+  }
+  Object.assign(current.history, { text: editor.value, done: [...merged.history.done], undone: [...merged.history.undone], at: 0 });
+  showUndoButtons(current.history);
+  applyReview(current, merged);
+}
+
+function applyReview(current, merged) {
+  current.reviewed = merged.reviewed;
+  current.reviewConfirmed = merged.reviewConfirmed;
+  showChangesHint();
+  if (reviewDiff) showReviewDiff({ base: lingeringBase() });
+}
+
+async function sendState(current) {
+  while (current.stateDirty) {
+    current.stateDirty = false;
+    let mine = stateNow(current);
+    let settled = false;
+    let tag = current.stateTag;
+    try {
+      let body = mergeState(current.synced, mine, current.synced?.remote ?? null, current.conflict);
+      for (let tries = 0; tries < STATE_WRITE_TRIES && !settled; tries++) {
+        const upload = await packed(JSON.stringify(body));
+        const res = await fetch(stateUrl(current, "note"), {
+          method: "PUT",
+          headers: { ...(tag ? { "If-Match": tag } : { "If-None-Match": "*" }), ...upload.headers },
+          body: upload.body,
+          signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
+          // A hidden tab may be closed, and only keepalive requests outlive that. Browsers fail them above 64 KB of bytes.
+          keepalive: document.hidden && upload.body.length < 60_000,
+        });
+        if (res.ok) {
+          current.stateTag = res.headers.get("ETag");
+          current.synced = { local: mine, remote: body };
+          settled = true;
+        } else if (res.status === 412) {
+          const fresh = await fetchNoteState(current);
+          mine = stateNow(current);
+          tag = fresh.tag ?? null;
+          body = mergeState(current.synced, mine, fresh.value, current.conflict);
+          if (doc === current) {
+            applyMerged(current, body);
+            mine = stateNow(current);
+          }
+        } else {
+          break;
+        }
+      }
+    } catch {}
+    if (!settled) {
+      current.stateDirty = true;
+      keepPending(current);
+      return;
+    }
+  }
+  if (!current.conflict) clearPending(current);
+  clearLocalState(current);
+}
+
+// What the PC hasn't got yet survives leaving the note or the tab being closed, and goes out when the note next opens.
+const pendingKey = (current) => `pending:${current.draftKey.slice("draft:".length)}`;
+
+function keepPending(current) {
+  try { localStorage.setItem(pendingKey(current), JSON.stringify({ synced: current.synced, mine: stateNow(current) })); } catch {}
+}
+
+function clearPending(current) {
+  try { localStorage.removeItem(pendingKey(current)); } catch {}
+}
+
+function readPending(current) {
+  try { return JSON.parse(localStorage.getItem(pendingKey(current))); } catch { return null; }
+}
+
+function leaveState(current) {
+  if (!current?.history) return;
+  if (current.stateDirty || current.pushing || current.conflict) keepPending(current);
+  return pushState(current);
+}
+
+// Only ever waits briefly: a slow state write must never hold back the text itself.
+const settleState = (current) => Promise.race([pushState(current), new Promise((done) => setTimeout(done, STATE_WAIT_MS))]);
+
+// Runs before each file save, so a device that sees the new text can already tell it came from another device, not an AI.
+function pushState(current) {
+  if (current?.pushing) return current.pushing;
+  if (!current?.stateDirty || !current.stateLoaded) return Promise.resolve();
+  clearTimeout(stateTimer);
+  current.pushing = sendState(current).finally(() => { current.pushing = null; });
+  return current.pushing;
+}
+
+// Big uploads go gzipped, since the phone's link to the PC can be slow; small ones aren't worth the work.
+const PACK_FROM_BYTES = 16_000;
+
+async function packed(text) {
+  const bytes = new TextEncoder().encode(text);
+  if (bytes.length < PACK_FROM_BYTES || !window.CompressionStream) return { body: bytes, headers: {} };
+  const zipped = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
+  return { body: new Uint8Array(await new Response(zipped).arrayBuffer()), headers: { "Content-Encoding": "gzip" } };
+}
+
+async function fetchJson(url, headers) {
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(READ_TIMEOUT_MS) });
+  if (res.status === 404) return { value: null };
+  if (res.status === 304) return { unchanged: true };
+  if (!res.ok) throw new Error();
+  return { value: await res.json().catch(() => null), tag: res.headers.get("ETag") };
+}
+
+// A malformed state counts as none, or the note could never be edited again.
+async function fetchNoteState(current, headers) {
+  const answer = await fetchJson(stateUrl(current, "note"), headers);
+  const { value } = answer;
+  return value && (!Array.isArray(value.marks) || !Array.isArray(value.history?.done) || !Array.isArray(value.history?.undone)) ? { ...answer, value: null } : answer;
+}
+
+function adoptState(current, { value, tag }) {
+  clearTimeout(stateTimer);
+  current.stateDirty = false;
+  current.stateTag = tag;
+  applyMerged(current, value);
+  current.synced = { local: stateNow(current), remote: value };
+}
+
+// Steps for other text mean the new text hasn't reached this device yet, so the next check tries again.
+async function pullState(current) {
+  if (current.stateDirty || current.pushing) return pushState(current);
+  const remote = await fetchNoteState(current, current.stateTag ? { "If-None-Match": current.stateTag } : {});
+  if (remote.unchanged || !remote.value || doc !== current || current.stateDirty || current.pushing) return;
+  if (remote.value.history.hash === hashText(editor.value)) {
+    adoptState(current, remote);
+  } else if (remote.value.history.hash === current.synced?.remote.history.hash) {
+    // The text didn't move, so only marks or the review did. This happens after an edit made with no device open.
+    const merged = mergeState(current.synced, stateNow(current), remote.value, current.conflict);
+    setMarks(current, relocate(merged.marks, editor.value), { share: false });
+    applyReview(current, merged);
+    current.stateTag = remote.tag;
+    current.synced = { local: stateNow(current), remote: remote.value };
+  }
+}
+
+// Browsers used to keep all this themselves. What the phone stored is merged in once, and removed only after the PC has it.
+function readLocalState(current) {
+  const [marksKey, undoKey, reviewedKey, scrollKey] = localKeys(current);
   try {
-    if (done.length || undone.length) localStorage.setItem(historyKey(current), JSON.stringify({ done, undone, hash: hashText(text) }));
-    else localStorage.removeItem(historyKey(current));
+    const marks = JSON.parse(localStorage.getItem(marksKey)) ?? [];
+    return {
+      marks: marks.map((mark) => (mark.line === undefined ? mark : createMark(editor.value, lineStart(mark.line)))),
+      history: JSON.parse(localStorage.getItem(undoKey)),
+      reviewed: localStorage.getItem(reviewedKey),
+      scrollTop: Number(localStorage.getItem(scrollKey)) || 0,
+    };
+  } catch {
+    return { marks: [], history: null, reviewed: null, scrollTop: 0 };
+  }
+}
+
+function clearLocalState(current) {
+  try {
+    for (const key of localKeys(current)) localStorage.removeItem(key);
+    localStorage.removeItem("reviewed-order");
   } catch {}
 }
 
-function loadHistory(current) {
-  const history = createHistory(editor.value);
+// A review someone pressed outranks an older copy. A copy made just by opening the note on another device doesn't.
+function oldBrowserChanges(local, saved) {
+  if (!local.marks.length && local.reviewed === null && !local.history?.done?.length && !local.history?.undone?.length) return null;
+  const serverSteps = saved?.history?.hash === local.history?.hash && saved?.history?.done.length;
+  return {
+    synced: saved ? { local: { marks: [] }, remote: saved } : null,
+    mine: {
+      marks: local.marks,
+      reviewed: saved?.reviewConfirmed ? saved.reviewed : local.reviewed ?? saved?.reviewed ?? null,
+      reviewConfirmed: saved?.reviewConfirmed ?? false,
+      history: serverSteps ? saved.history : local.history ?? null,
+    },
+  };
+}
+
+function withOlderChanges(remote, changes, hash, textInConflict) {
+  if (!changes) return remote;
+  // Steps for text that is no longer here would restore into the wrong place.
+  if (changes.mine.history?.hash !== hash) changes.mine.history = changes.synced?.local.history ?? remote?.history ?? null;
+  return mergeState(changes.synced, changes.mine, remote, textInConflict);
+}
+
+async function loadState(current, remoteRequest) {
+  let remote = null;
   try {
-    const saved = JSON.parse(localStorage.getItem(historyKey(current)));
-    // Steps saved against other text would restore into the wrong place.
-    if (saved?.hash === hashText(editor.value)) Object.assign(history, { done: saved.done, undone: saved.undone });
+    remote = await remoteRequest;
   } catch {}
-  current.history = history;
-  showUndoButtons(history);
+  if (doc !== current || !remote || current.stateLoaded) return;
+  const saved = remote.value;
+  const hash = hashText(editor.value);
+  const pending = readPending(current);
+  const heldBack = current.conflict && pending?.mine.history?.hash === hash ? pending.mine : null;
+  const merged = withOlderChanges(withOlderChanges(saved, oldBrowserChanges(readLocalState(current), saved), hash, false), pending, hash, current.conflict);
+  const changed = JSON.stringify(merged) !== JSON.stringify(saved);
+  const stepsFit = merged?.history?.hash === hash;
+  current.history = createHistory(editor.value);
+  const steps = heldBack?.history ?? (stepsFit ? merged.history : null);
+  if (steps) Object.assign(current.history, { done: [...steps.done], undone: [...steps.undone] });
+  showUndoButtons(current.history);
+  current.removedMarks = merged?.removedMarks ?? [];
+  setMarks(current, relocate(merged?.marks ?? [], editor.value), { share: false });
+  current.reviewConfirmed = merged?.reviewConfirmed ?? false;
+  loadReviewed(current, heldBack?.reviewed ?? merged?.reviewed ?? null);
+  current.stateTag = remote.tag ?? null;
+  current.stateLoaded = true;
+  if (saved) {
+    const now = stateNow(current);
+    current.synced = {
+      local: {
+        marks: saved.marks,
+        reviewed: changed && merged.reviewed !== saved.reviewed ? undefined : now.reviewed,
+        reviewConfirmed: changed && merged.reviewConfirmed !== saved.reviewConfirmed ? undefined : now.reviewConfirmed,
+        history: changed && stepsFit && JSON.stringify(merged.history) !== JSON.stringify(saved.history) ? undefined : now.history,
+      },
+      remote: saved,
+    };
+  }
+  // Changes made while no device had the note open come with no undo step, and reading them accepts them.
+  // One step from the last read text lets Undo bring back anything they removed.
+  // Added after the synced copy is taken, so the merge counts it as this device's change.
+  const stepForAway = !steps && !current.conflict && current.reviewed !== editor.value;
+  if (stepForAway) {
+    current.history.text = current.reviewed;
+    record(current.history, editor.value, Date.now(), { separate: true });
+    showUndoButtons(current.history);
+    scheduleState(current);
+  }
+  if (saved && !changed) {
+    if (!current.conflict) clearPending(current);
+    clearLocalState(current);
+    return;
+  }
+  current.stateDirty = true;
+  await settleState(current);
 }
 
 function trackChange(options) {
   if (!doc?.history) return;
   record(doc.history, editor.value, Date.now(), options);
   showUndoButtons(doc.history);
-  clearTimeout(historyTimer);
-  const current = doc;
-  historyTimer = setTimeout(() => keepHistory(current), HISTORY_DELAY_MS);
+  scheduleState(doc);
 }
+
+let stepDiffRemoved = null;
+
+function clearStepDiff() {
+  CSS.highlights?.delete("just-added");
+  if (!stepDiffRemoved) return;
+  const line = stepDiffRemoved.parentNode;
+  stepDiffRemoved.remove();
+  stepDiffRemoved = null;
+  line.normalize();
+}
+
+function textPoint(offset, { start = false } = {}) {
+  const { line, column } = lineAndColumn(offset);
+  return pointInLine(line, column, start);
+}
+
+// `start` asks for the point after anything inserted at that spot, for a range that begins there.
+function pointInLine(line, column, start = false) {
+  const el = lineEls[line];
+  let left = column;
+  for (const node of el.childNodes) {
+    if (node.nodeType !== Node.TEXT_NODE) continue;
+    if (left < node.length || (left === node.length && !start)) return [node, left];
+    left -= node.length;
+  }
+  return [el, el.childNodes.length];
+}
+
+// The removed text goes after the caret, so the textarea's caret still lines up with the painted text above it.
+function showStepDiff(start, caret, removed) {
+  if (caret > start) {
+    const added = document.createRange();
+    added.setStart(...textPoint(start));
+    added.setEnd(...textPoint(caret));
+    if (window.Highlight) CSS.highlights.set("just-added", new Highlight(added));
+  }
+  if (!removed) return;
+  stepDiffRemoved = document.createElement("del");
+  stepDiffRemoved.textContent = removed;
+  const at = document.createRange();
+  at.setStart(...textPoint(caret));
+  at.insertNode(stepDiffRemoved);
+}
+
+// ---- Changes someone else made, shown in the note until each has been on screen long enough to read ----
+
+let reviewDiff = null;
+let lastInline = null;
+
+function removeStruck(dels) {
+  for (const el of dels) {
+    const line = el.parentNode;
+    if (!line) continue;
+    el.remove();
+    line.normalize();
+  }
+}
+
+function clearReviewDiff() {
+  if (!reviewDiff) return;
+  clearInterval(reviewDiff.timer);
+  CSS.highlights?.delete("review-added");
+  CSS.highlights?.delete("review-fading");
+  for (const piece of reviewDiff.pieces) removeStruck(piece.dels);
+  $("note-sheet").classList.remove("reviewing");
+  reviewDiff = null;
+}
+
+// Struck-out text coming or going above the reader would move the text they are on, so that text's own line is the anchor.
+// Measured on screen: Chrome's own scroll anchoring sometimes corrects first, and then nothing is left to correct.
+function keepReadingSpot(work) {
+  if ($("note").hidden || !lineEls.length) return work();
+  const line = topVisibleLine();
+  const before = lineTextTop(line) - $("note").scrollTop;
+  work();
+  $("note").scrollTop += lineTextTop(line) - $("note").scrollTop - before;
+}
+
+// `base` is from `lingeringBase`, for a rebuild while read changes are still on screen.
+function showReviewDiff({ base = null } = {}) {
+  keepReadingSpot(() => buildReviewDiff(base));
+}
+
+// The text the open diff started from, with only the read changes that already left taken in:
+// a rebuild against it keeps read changes still on screen dimmed in place, instead of pulling the text up under the reader.
+function lingeringBase() {
+  const diff = reviewDiff;
+  if (!diff?.pieces.some(({ seen, gone }) => seen && !gone)) return null;
+  return reviewWithSeen(diff.before, diff.after, diff.changes, new Set(diff.pieces.flatMap(({ gone }, i) => (gone ? [i] : []))));
+}
+
+function buildReviewDiff(lingering) {
+  clearReviewDiff();
+  const reviewed = doc?.reviewed;
+  const after = editor.value;
+  if (!doc?.stateLoaded || doc.conflict || changesOpen() || $("note").hidden || reviewed === null || reviewed === undefined) return;
+  if (lastInline?.reviewed !== reviewed || lastInline.after !== after || lastInline.lingering !== lingering) {
+    lastInline = { reviewed, after, lingering, ...rebuiltChanges(reviewed, after, lingering) };
+  }
+  const { before, changes, read } = lastInline;
+  if (!changes.length) return;
+  const pieces = changes.map((change) => ({
+    change,
+    dels: change.removed.map(({ at, text }) => {
+      const el = document.createElement("del");
+      el.className = "review";
+      el.textContent = text;
+      const spot = document.createRange();
+      spot.setStart(...textPoint(at));
+      spot.insertNode(el);
+      return el;
+    }),
+    ranges: [],
+    track: { since: null, covered: [] },
+    seen: false,
+    gone: false,
+  }));
+  // Only once all struck-out text is in, so no highlight starts in front of it.
+  for (const piece of pieces) {
+    piece.ranges = piece.change.added.map(({ start, end }) => {
+      const range = document.createRange();
+      range.setStart(...textPoint(start, { start: true }));
+      range.setEnd(...textPoint(end));
+      return range;
+    });
+  }
+  for (const index of read) {
+    pieces[index].seen = true;
+    for (const el of pieces[index].dels) el.classList.add("seen");
+  }
+  const highlight = window.Highlight ? new Highlight(...pieces.flatMap((piece) => (piece.seen ? [] : piece.ranges))) : null;
+  const fading = window.Highlight ? new Highlight(...pieces.flatMap((piece) => (piece.seen ? piece.ranges : []))) : null;
+  if (highlight) {
+    CSS.highlights.set("review-added", highlight);
+    CSS.highlights.set("review-fading", fading);
+  }
+  $("note-sheet").classList.add("reviewing");
+  reviewDiff = { before, after, changes, pieces, highlight, fading, reviewed, seen: new Set(read), timer: setInterval(checkSeen, SEEN_CHECK_MS) };
+  placePieces(reviewDiff);
+}
+
+// Where each piece sits in the note, so each check only measures the pieces near the screen.
+function placePieces(diff) {
+  const offset = $("note").scrollTop - $("note").getBoundingClientRect().top;
+  for (const piece of diff.pieces) {
+    const box = piece.gone ? null : pieceBox(piece);
+    piece.place = box && { top: box.top + offset, bottom: box.bottom + offset };
+  }
+}
+
+function pieceBox(piece) {
+  const boxes = [...piece.dels.map((el) => el.getBoundingClientRect()), ...piece.ranges.map((range) => range.getBoundingClientRect())]
+    .filter((box) => box.width || box.height);
+  if (!boxes.length) return null;
+  const top = Math.min(...boxes.map((box) => box.top));
+  return { top, bottom: Math.max(top + 1, ...boxes.map((box) => box.bottom)) };
+}
+
+// Struck-out text can sit in front of a line's own text, inside the same block.
+function lineTextTop(line) {
+  const spot = document.createRange();
+  spot.setStart(...textPoint(lineStart(line), { start: true }));
+  const box = spot.getBoundingClientRect();
+  return box.height ? box.top - $("note").getBoundingClientRect().top + $("note").scrollTop : lineEls[line].offsetTop;
+}
+
+// Where a row of the list sits in the note, with the diff showing there.
+function rowTopInNote({ kind, line }, nth) {
+  const index = Math.min(line, lineEls.length) - 1;
+  const piece = kind === "removed" ? reviewDiff?.pieces.find(({ change }) => change.newFrom === line - 1) : null;
+  // Removed lines struck out whole sit together in one piece of struck-out text.
+  const whole = piece ? piece.dels.findIndex((el) => el.textContent.includes("\n")) : -1;
+  const struck = piece?.dels[whole]?.firstChild;
+  const range = document.createRange();
+  if (struck) {
+    // Lines removed at the end are struck out after a line break; elsewhere a leading break is a removed blank line.
+    const starts = [0, ...[...struck.data.matchAll(/\n/g)].map((match) => match.index + 1)].slice(piece.change.removed[whole].end ? 1 : 0);
+    const at = starts[Math.min(nth, starts.length - 1)];
+    // A blank last line has nothing to measure, so it starts where the line break before it ends.
+    if (at === struck.length && at > 0) {
+      range.setStart(struck, at - 1);
+      range.setEnd(struck, at);
+      return range.getBoundingClientRect().bottom;
+    }
+    range.setStart(struck, at);
+  } else {
+    // A removed line shown word by word is inside the line that replaced it.
+    const target = Math.min(index + (kind === "removed" ? nth : 0), lineEls.length - 1);
+    range.setStart(...textPoint(lineStart(target), { start: true }));
+  }
+  const box = range.getBoundingClientRect();
+  return box.height ? box.top : lineEls[index].getBoundingClientRect().top;
+}
+
+// The reader's eyes are on that row of the list, so the note opens with the same line at the same height on screen.
+// The caret stays put: focusing the note would end the diff.
+function showRowInNote(row, nth, screenTop) {
+  closeChanges();
+  cancelAnimationFrame(flight);
+  const note = $("note");
+  const view = note.getBoundingClientRect();
+  const target = screenTop > view.top && screenTop < view.bottom ? screenTop : view.top + note.clientHeight / 3;
+  note.scrollTop += rowTopInNote(row, nth) - target;
+  const line = Math.min(row.line, lineEls.length) - 1;
+  editor.setSelectionRange(lineStart(line), lineStart(line));
+  $("changes-open").focus({ preventScroll: true });
+}
+
+function revealFirstChange() {
+  const box = reviewDiff?.pieces.map(pieceBox).find(Boolean);
+  if (!box) return;
+  const note = $("note");
+  const view = note.getBoundingClientRect();
+  const { top, bottom } = box;
+  if (top < view.top || bottom > view.bottom) note.scrollTop += top - view.top - note.clientHeight / 3;
+}
+
+function checkSeen() {
+  if (!doc || $("edit-screen").hidden) {
+    clearReviewDiff();
+    return;
+  }
+  const diff = reviewDiff;
+  const now = performance.now();
+  const view = $("note").getBoundingClientRect();
+  const looking = !document.hidden && document.hasFocus() && !$("toc").open;
+  const note = $("note");
+  const nearFrom = note.scrollTop - note.clientHeight;
+  const nearTo = note.scrollTop + 2 * note.clientHeight;
+  // A phone throttles timers in the background, so a long gap since the last check is a break in looking.
+  const resumed = now - (diff.checkedAt ?? now) > 3 * SEEN_CHECK_MS;
+  diff.checkedAt = now;
+  let dropped = false;
+  for (const [index, piece] of diff.pieces.entries()) {
+    if (piece.gone) continue;
+    const far = piece.place && (piece.place.bottom < nearFrom || piece.place.top > nearTo);
+    if ((far || resumed) && !piece.seen) piece.track = { ...piece.track, since: null };
+    if (far && !piece.seen) continue;
+    const box = far ? null : pieceBox(piece);
+    if (piece.seen) {
+      if (!box || box.bottom <= view.top || box.top >= view.bottom) {
+        dropReadPiece(diff, piece);
+        dropped = true;
+      }
+      continue;
+    }
+    // Only blank lines changed, which there is nothing to read in.
+    if (box) piece.track = lookAt(piece.track, { ...box, viewTop: view.top, viewBottom: view.bottom, now, looking }, readingTime(piece.change.words));
+    if (!box || piece.track.seen) markSeen(diff, index);
+    if (reviewDiff !== diff) return;
+  }
+  if (diff.pieces.every(({ gone }) => gone)) clearReviewDiff();
+  else if (dropped) placePieces(diff);
+}
+
+function markSeen(diff, index) {
+  // Another device reviewed meanwhile, so what was shown no longer matches what is left to see.
+  if (doc.reviewed !== diff.reviewed) {
+    showReviewDiff({ base: lingeringBase() });
+    return;
+  }
+  const piece = diff.pieces[index];
+  piece.seen = true;
+  diff.seen.add(index);
+  diff.reviewed = doc.reviewed = reviewWithSeen(diff.before, diff.after, diff.changes, diff.seen);
+  doc.reviewConfirmed = true;
+  scheduleState(doc);
+  showChangesHint();
+  for (const el of piece.dels) el.classList.add("seen");
+  for (const range of piece.ranges) {
+    diff.highlight?.delete(range);
+    diff.fading?.add(range);
+  }
+}
+
+// A read change leaves only once it is off screen, since struck-out text going away moves the lines after it.
+function dropReadPiece(diff, piece) {
+  piece.gone = true;
+  keepReadingSpot(() => removeStruck(piece.dels));
+  for (const range of piece.ranges) diff.fading?.delete(range);
+}
+
+function offsetAtPoint(x, y) {
+  const caret = document.caretPositionFromPoint?.(x, y);
+  const range = caret ? null : document.caretRangeFromPoint?.(x, y);
+  const node = caret?.offsetNode ?? range?.startContainer;
+  const offset = caret?.offset ?? range?.startOffset ?? 0;
+  if (!node) return null;
+  const line = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node).closest("#painted > div");
+  const index = lineEls.indexOf(line);
+  if (index === -1) return null;
+  const children = [...line.childNodes];
+  // Inside struck-out text the caret goes where that text was.
+  const stop = node === line ? offset : children.findIndex((child) => child === node || child.contains(node));
+  const column = children.slice(0, stop).reduce((sum, child) => sum + (child.nodeType === Node.TEXT_NODE ? child.length : 0), 0);
+  return lineStart(index) + column + (node.parentNode === line && node.nodeType === Node.TEXT_NODE ? offset : 0);
+}
+
+// Struck-out text going away moves the lines below it, so the spot the reader is at stays where it is on screen.
+function clearReviewDiffAt(offset) {
+  if (!reviewDiff) return;
+  const topOf = () => {
+    const spot = document.createRange();
+    spot.setStart(...textPoint(offset, { start: true }));
+    spot.setEnd(...textPoint(Math.min(offset + 1, paintedText.length)));
+    return spot.getClientRects()[0]?.top ?? lineEls[lineAndColumn(offset).line].getBoundingClientRect().top;
+  };
+  const before = topOf();
+  clearReviewDiff();
+  $("note").scrollTop += topOf() - before;
+}
+
+// Only places that put the caret in the note end the diff: the browser also focuses the note again when its window comes back.
+function focusEditor() {
+  clearReviewDiffAt(editor.selectionStart);
+  editor.focus({ preventScroll: true });
+}
+
+new ResizeObserver(() => {
+  if (reviewDiff) placePieces(reviewDiff);
+}).observe($("painted"));
+
+$("painted").addEventListener("click", (event) => {
+  if (!reviewDiff) return;
+  const below = event.clientY > lineEls.at(-1).getBoundingClientRect().bottom;
+  const offset = offsetAtPoint(event.clientX, event.clientY) ?? (below ? editor.value.length : null);
+  if (offset !== null) editor.setSelectionRange(offset, offset);
+  focusEditor();
+});
+editor.addEventListener("beforeinput", () => clearReviewDiffAt(editor.selectionStart));
+
+// Capture runs before the editor's own Ctrl+Z handler, which would otherwise have its new diff cleared straight away.
+// Undo's own diff hides the unread changes, which come back with the next scroll once it is dismissed.
+let reviewAfterStep = false;
+
+function endStepDiff() {
+  if (stepDiffRemoved || CSS.highlights?.has("just-added")) reviewAfterStep = true;
+  clearStepDiff();
+}
+document.addEventListener("pointerdown", endStepDiff, { capture: true, passive: true });
+document.addEventListener("wheel", endStepDiff, { capture: true, passive: true });
+$("note").addEventListener("scroll", () => {
+  if (!reviewAfterStep || stepDiffRemoved || CSS.highlights?.has("just-added")) return;
+  reviewAfterStep = false;
+  if (!reviewDiff && doc && hasChanges(doc) && document.activeElement !== editor) showReviewDiff();
+}, { passive: true });
+document.addEventListener("keydown", (event) => {
+  if (!["Control", "Shift", "Alt", "Meta"].includes(event.key)) clearStepDiff();
+}, { capture: true });
 
 function applyHistoryStep(step) {
   if (!doc?.history) return;
   const change = step(doc.history);
   if (!change) return;
   const textBefore = paintedText;
+  const removed = textBefore.slice(change.start, change.end);
   editor.setRangeText(change.text, change.start, change.end, "end");
   editor.setSelectionRange(change.caret, change.caret);
   noteChanged();
-  if (change.fromPc) showChangesHint();
-  else followOwnEdit(textBefore);
+  if (change.keepsReview) showChangesHint();
+  else if (!change.fromPc) followOwnEdit(textBefore);
+  else if (doc.reviewed !== null) {
+    doc.reviewed = undoIntoReview(doc.reviewed, textBefore, editor.value);
+    showChangesHint();
+  }
   showUndoButtons(doc.history);
-  keepHistory(doc);
+  doc.stateDirty = true;
+  pushState(doc);
   if (changesOpen()) return;
+  showStepDiff(change.start, change.caret, removed);
   // The change may be far from where the reader is, and it has to be seen to be trusted.
   const note = $("note");
   const el = lineEls[editor.value.slice(0, change.start).split("\n").length - 1];
@@ -1188,20 +2216,35 @@ editor.addEventListener("beforeinput", (event) => {
   applyHistoryStep(event.inputType === "historyUndo" ? undo : redo);
 });
 
-// ---- Marks, kept per note on this phone ----
+// ---- Marks ----
 
 let markedEls = [];
-const marksKey = (current) => `marks:${current.draftKey.slice("draft:".length)}`;
-const lineStart = (line) => paintedLines.slice(0, line).reduce((sum, text) => sum + text.length + 1, 0);
+// Diffs and search look up thousands of offsets in a long note, so the line starts are kept until the text changes.
+let lineStarts = null;
+
+function startsOfLines() {
+  if (lineStarts) return lineStarts;
+  lineStarts = [];
+  let at = 0;
+  for (const text of paintedLines) {
+    lineStarts.push(at);
+    at += text.length + 1;
+  }
+  return lineStarts;
+}
+
+const lineStart = (line) => startsOfLines()[line] ?? paintedText.length + 1;
 
 function lineAndColumn(offset) {
-  let line = 0;
-  let start = 0;
-  while (line < paintedLines.length - 1 && offset > start + paintedLines[line].length) {
-    start += paintedLines[line].length + 1;
-    line++;
+  const starts = startsOfLines();
+  let low = 0;
+  let high = starts.length - 1;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (starts[middle] <= offset) low = middle;
+    else high = middle - 1;
   }
-  return { line, column: offset - start };
+  return { line: low, column: offset - (starts[low] ?? 0) };
 }
 
 function buildSpot(column) {
@@ -1213,6 +2256,16 @@ function buildSpot(column) {
 
 // Only lines whose marks changed are rebuilt, because this runs on every keystroke while a note has marks.
 function showMarksInNote(current) {
+  if (stepDiffRemoved) clearStepDiff();
+  // A line is rebuilt from its text, which would take in any struck-out text inside it.
+  let reviewing = false;
+  let base = null;
+  const stopReviewing = () => {
+    if (!reviewDiff) return;
+    reviewing = true;
+    base = lingeringBase();
+    keepReadingSpot(clearReviewDiff);
+  };
   const columnsByEl = new Map();
   for (const { offset } of current.marks) {
     const { line, column } = lineAndColumn(offset);
@@ -1221,12 +2274,15 @@ function showMarksInNote(current) {
   }
   for (const el of markedEls) {
     if (columnsByEl.has(el)) continue;
+    stopReviewing();
     el.textContent = el.textContent;
     delete el.dataset.columns;
+    refreshSearchSoon();
   }
   for (const [el, columns] of columnsByEl) {
     const key = columns.join();
     if (el.dataset.columns === key) continue;
+    stopReviewing();
     const text = el.textContent;
     const nodes = [];
     let at = 0;
@@ -1237,22 +2293,23 @@ function showMarksInNote(current) {
     nodes.push(text.slice(at));
     el.replaceChildren(...nodes);
     el.dataset.columns = key;
+    refreshSearchSoon();
   }
   markedEls = [...columnsByEl.keys()];
+  if (reviewing) showReviewDiff({ base });
 }
 
-function setMarks(current, marks) {
+function rememberRemoved(current, offset) {
+  const known = [...current.marks, ...(current.synced?.remote.marks ?? [])];
+  // The server's offsets are for the text it last saw, so each is placed in this text before comparing.
+  const here = known.filter((mark) => relocate([mark], editor.value)[0].offset === offset);
+  current.removedMarks = [...current.removedMarks, ...here.map(markId)];
+}
+
+function setMarks(current, marks, { share = true } = {}) {
   current.marks = marks;
   showMarksInNote(current);
-  try { localStorage.setItem(marksKey(current), JSON.stringify(marks)); } catch {}
-}
-
-function loadMarks(current) {
-  let saved = [];
-  try { saved = JSON.parse(localStorage.getItem(marksKey(current))) ?? []; } catch {}
-  // Marks saved before they tracked exact positions only know their line.
-  const marks = saved.map((mark) => (mark.line === undefined ? mark : createMark(editor.value, lineStart(mark.line))));
-  setMarks(current, relocate(marks, editor.value));
+  if (share) scheduleState(current);
 }
 
 // ---- Mark button that floats at the cursor, like the phone's own Cut and Copy menu ----
@@ -1311,6 +2368,10 @@ function showMarkPill() {
   const above = start.top - pill.offsetHeight - PILL_GAP_PX;
   // The phone's own menu sits above a selection, so a selection gets the button below it.
   const top = isRange || above < note.top ? below : above;
+  if (top < note.top || top > note.bottom) {
+    hideMarkPill();
+    return;
+  }
   const half = pill.offsetWidth / 2;
   const center = Math.max(half + PILL_GAP_PX, Math.min(start.left - sheet.left, sheet.width - half - PILL_GAP_PX));
   pill.style.insetBlockStart = `${top - sheet.top}px`;
@@ -1334,19 +2395,21 @@ $("mark-pill").addEventListener("click", () => {
   const offset = editor.selectionStart;
   const others = doc.marks.filter((mark) => mark.offset !== offset);
   const adding = others.length === doc.marks.length;
+  if (!adding) rememberRemoved(doc, offset);
   setMarks(doc, relocate(adding ? [...others, createMark(editor.value, offset)] : others, editor.value));
   hideMarkPill();
   showToast(adding ? "Mark added" : "Mark removed");
 });
 
 function goToMark(offset) {
+  closeReading({ remember: false });
   closeChanges();
   editor.setSelectionRange(offset, offset);
   // Focusing the note on a phone would pop the keyboard over what the reader came to see.
-  if (matchMedia("(pointer: fine)").matches) editor.focus({ preventScroll: true });
+  if (matchMedia("(pointer: fine)").matches) focusEditor();
   const { line, column } = lineAndColumn(offset);
-  const spot = lineEls[line].querySelector(`[data-column="${column}"]`) ?? lineEls[line];
-  flyTo(spot.offsetTop - $("note").clientHeight / 3);
+  const spot = lineEls[line].querySelector(`[data-column="${column}"]`);
+  flyTo((spot ? spot.offsetTop : lineTextTop(line)) - $("note").clientHeight / 3);
 }
 
 function buildMarkRow({ offset, before, after }) {
@@ -1374,6 +2437,7 @@ function buildMarkRow({ offset, before, after }) {
   remove.setAttribute("aria-label", `Remove mark on line ${line + 1}`);
   remove.append(icon("#i-x", ""));
   remove.addEventListener("click", () => {
+    rememberRemoved(doc, offset);
     setMarks(doc, doc.marks.filter((mark) => mark.offset !== offset));
     renderMarkRows();
     showToast("Mark removed");
@@ -1415,14 +2479,15 @@ function buildCount(iconName, amount, label) {
 }
 
 function goToLine(line) {
+  closeReading({ remember: false });
   closeChanges();
   // Focusing the note on a phone would pop the keyboard over what the reader came to see.
   if (matchMedia("(pointer: fine)").matches) {
     const offset = paintedLines.slice(0, line).reduce((sum, text) => sum + text.length + 1, 0);
     editor.setSelectionRange(offset, offset);
-    editor.focus({ preventScroll: true });
+    focusEditor();
   }
-  flyTo(lineEls[line].offsetTop - JUMP_GAP_PX);
+  flyTo(lineTextTop(line) - JUMP_GAP_PX);
 }
 
 // ---- Contents ----
@@ -1509,19 +2574,256 @@ $("go-bottom").addEventListener("click", () => {
   flyTo(note.scrollHeight - blankBelowText + END_GAP_PX - note.clientHeight);
 });
 
-// ---- Reading position, kept per note on this phone ----
+// ---- Find in this note. The matches are painted as highlights, so no line's text or the file is ever touched ----
+
+let searchMatches = [];
+let searchIndex = -1;
+let searchTimer = 0;
+let focusEditorAfterSearch = false;
+const searchIsOpen = () => !$("search-bar").hidden;
+
+// Matches come sorted, so one walk through the lines finds them all, instead of a walk per match.
+function buildMatchRanges(matches) {
+  let line = 0;
+  let start = 0;
+  const pointAt = (offset, isStart = false) => {
+    while (line < paintedLines.length - 1 && offset > start + paintedLines[line].length) {
+      start += paintedLines[line].length + 1;
+      line++;
+    }
+    return pointInLine(line, offset - start, isStart);
+  };
+  return matches.map((match) => {
+    const range = document.createRange();
+    range.setStart(...pointAt(match.start, true));
+    range.setEnd(...pointAt(match.end));
+    return range;
+  });
+}
+
+function clearSearchPaint() {
+  CSS.highlights?.delete("search-match");
+  CSS.highlights?.delete("search-current");
+}
+
+function showSearchState() {
+  const count = searchMatches.length;
+  const empty = !$("search-input").value;
+  $("search-count").textContent = empty ? "" : count ? `${searchIndex + 1}/${count}` : "No results";
+  $("search-previous").disabled = count === 0;
+  $("search-next").disabled = count === 0;
+  clearSearchPaint();
+  if (!count || !window.Highlight) return;
+  // Very common words can match thousands of times, and only those near the current one can be on screen.
+  const nearby = searchMatches.slice(Math.max(0, searchIndex - MAX_PAINTED_MATCHES), searchIndex + MAX_PAINTED_MATCHES);
+  CSS.highlights.set("search-match", new Highlight(...buildMatchRanges(nearby)));
+  const current = new Highlight(...buildMatchRanges([searchMatches[searchIndex]]));
+  current.priority = 1;
+  CSS.highlights.set("search-current", current);
+}
+
+function revealCurrentMatch() {
+  const match = searchMatches[searchIndex];
+  if (!match) return;
+  const [range] = buildMatchRanges([match]);
+  const note = $("note");
+  const box = note.getBoundingClientRect();
+  const spot = range.getBoundingClientRect();
+  cancelAnimationFrame(flight);
+  if (spot.top < box.top || spot.bottom > box.bottom) note.scrollTop += spot.top - box.top - note.clientHeight / 3;
+}
+
+function runSearch({ keepPlace = false } = {}) {
+  clearTimeout(searchTimer);
+  searchTimer = 0;
+  const before = keepPlace ? searchMatches[searchIndex]?.start ?? 0 : null;
+  searchMatches = findMatches(editor.value, $("search-input").value);
+  const from = before ?? lineStart(topVisibleLine());
+  const next = searchMatches.findIndex((match) => match.start >= from);
+  searchIndex = searchMatches.length ? Math.max(next, 0) : -1;
+  showSearchState();
+  if (!keepPlace) revealCurrentMatch();
+}
+
+function moveSearch(step) {
+  if (searchTimer) runSearch({ keepPlace: true });
+  const count = searchMatches.length;
+  if (!count) return;
+  searchIndex = (searchIndex + step + count) % count;
+  showSearchState();
+  revealCurrentMatch();
+}
+
+// Editing and repainting replace the text the highlights point at.
+function refreshSearchSoon() {
+  if (!searchIsOpen()) return;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => runSearch({ keepPlace: true }), document.activeElement === editor ? SEARCH_WHILE_TYPING_MS : SEARCH_DELAY_MS);
+}
+
+// ---- Reading view: the note as formatted Markdown. Its renderer loads the first time it is opened ----
+
+let renderNote = null;
+let readingTimer = 0;
+const readingOpen = () => !$("read-view").hidden;
+const readingPreferred = () => {
+  try {
+    return localStorage.getItem(READ_MODE_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+function rememberReading(on) {
+  try {
+    localStorage.setItem(READ_MODE_KEY, on ? "1" : "0");
+  } catch {}
+}
+
+async function openReading() {
+  const current = doc;
+  if (readingOpen() || !current?.history) return;
+  renderNote ??= (await import("/reading.js")).renderNote;
+  if (doc !== current || readingOpen()) return;
+  const line = topVisibleLine();
+  closeSearch({ moveFocus: false });
+  hideMarkPill();
+  clearReviewDiff();
+  $("read-view").innerHTML = renderNote(editor.value);
+  $("note").hidden = true;
+  $("read-view").hidden = false;
+  $("read-toggle").setAttribute("aria-pressed", "true");
+  const block = [...$("read-view").querySelectorAll("[data-line]")].findLast((el) => Number(el.dataset.line) <= line);
+  $("read-view").scrollTop = block ? block.offsetTop - JUMP_GAP_PX : 0;
+}
+
+// `remember: false` when something else needs the editor for a moment, like search or a jump.
+function closeReading({ remember = true } = {}) {
+  if (!readingOpen()) return;
+  clearTimeout(readingTimer);
+  const view = $("read-view");
+  const block = [...view.querySelectorAll("[data-line]")].find((el) => el.offsetTop + el.offsetHeight > view.scrollTop);
+  view.hidden = true;
+  view.replaceChildren();
+  $("note").hidden = false;
+  $("read-toggle").setAttribute("aria-pressed", "false");
+  if (block) $("note").scrollTop = lineTextTop(Math.min(Number(block.dataset.line), lineEls.length - 1)) - JUMP_GAP_PX;
+  if (remember) rememberReading(false);
+  showReviewDiff();
+}
+
+// The AI may write while the note is being read; its new text shows after a moment, in the same place.
+function refreshReadingSoon() {
+  if (!readingOpen() || !renderNote) return;
+  clearTimeout(readingTimer);
+  readingTimer = setTimeout(() => {
+    if (!readingOpen()) return;
+    const top = $("read-view").scrollTop;
+    $("read-view").innerHTML = renderNote(editor.value);
+    $("read-view").scrollTop = top;
+  }, SEARCH_DELAY_MS);
+}
+
+$("read-toggle").addEventListener("click", () => {
+  if (readingOpen()) closeReading();
+  else {
+    rememberReading(true);
+    openReading();
+  }
+});
+
+function openSearch() {
+  if (!doc?.history) return;
+  closeReading({ remember: false });
+  closeChanges();
+  hideMarkPill();
+  if (!searchIsOpen()) focusEditorAfterSearch = document.activeElement === editor;
+  const picked = editor.value.slice(editor.selectionStart, editor.selectionEnd);
+  if (focusEditorAfterSearch && picked && !picked.includes("\n")) $("search-input").value = picked;
+  $("search-bar").hidden = false;
+  $("search-input").focus();
+  $("search-input").select();
+  runSearch();
+}
+
+function closeSearch({ moveFocus = true } = {}) {
+  if (!searchIsOpen()) return;
+  const stillSearching = $("search-bar").contains(document.activeElement);
+  clearTimeout(searchTimer);
+  $("search-bar").hidden = true;
+  clearSearchPaint();
+  const match = searchMatches[searchIndex];
+  searchMatches = [];
+  searchIndex = -1;
+  if (!moveFocus || !stillSearching) return;
+  if (!focusEditorAfterSearch) {
+    $("search-open").focus({ preventScroll: true });
+    return;
+  }
+  // A caret, because a selection would let the next key replace the match.
+  if (match) editor.setSelectionRange(match.end, match.end);
+  focusEditor();
+}
+
+$("search-open").addEventListener("click", openSearch);
+$("search-close").addEventListener("click", closeSearch);
+$("search-previous").addEventListener("click", () => moveSearch(-1));
+$("search-next").addEventListener("click", () => moveSearch(1));
+for (const id of ["search-open", "search-previous", "search-next", "search-close"]) {
+  // Keeping focus where it is keeps the phone's keyboard open.
+  $(id).addEventListener("mousedown", (event) => event.preventDefault());
+}
+$("search-input").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => runSearch(), SEARCH_DELAY_MS);
+});
+$("search-input").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.isComposing) return;
+  event.preventDefault();
+  moveSearch(event.shiftKey ? -1 : 1);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && searchIsOpen() && !$("toc").open) {
+    closeSearch();
+    return;
+  }
+  const isFind = (event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "f";
+  if (!isFind || $("edit-screen").hidden || !doc?.history || $("toc").open) return;
+  event.preventDefault();
+  openSearch();
+});
+
+// ---- Reading position: a line and how far into it, because the same pixels are another place at another screen width ----
 
 let scrollTimer = 0;
-const scrollKey = (current) => `scroll:${current.draftKey.slice("draft:".length)}`;
+
+function topVisibleLine() {
+  const top = $("note").scrollTop;
+  let low = 0;
+  let high = lineEls.length - 1;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (lineEls[middle].offsetTop <= top) low = middle;
+    else high = middle - 1;
+  }
+  return low;
+}
 
 function keepScroll() {
   clearTimeout(scrollTimer);
-  if (!doc || doc.base === null || $("note").hidden) return;
-  try { localStorage.setItem(scrollKey(doc), String($("note").scrollTop)); } catch {}
+  if (!doc?.scrollReady || doc.base === null || $("note").hidden) return;
+  const top = $("note").scrollTop;
+  const line = topVisibleLine();
+  const el = lineEls[line];
+  const body = JSON.stringify({ line, within: Math.max(0, top - el.offsetTop) / (el.offsetHeight || 1) });
+  if (body === doc.scrollSent) return;
+  doc.scrollSent = body;
+  fetch(stateUrl(doc, "scroll"), { method: "PUT", body, keepalive: true }).catch(() => {});
 }
 
-function restoreScroll(current) {
-  try { $("note").scrollTop = Number(localStorage.getItem(scrollKey(current))) || 0; } catch {}
+function restoreScroll(saved, localTop) {
+  const el = saved && lineEls[Math.min(saved.line, lineEls.length - 1)];
+  $("note").scrollTop = el ? el.offsetTop + saved.within * el.offsetHeight : localTop;
 }
 
 $("note").addEventListener("scroll", () => {
@@ -1530,7 +2832,7 @@ $("note").addEventListener("scroll", () => {
 }, { passive: true });
 
 // Replaces only the part that changed, so the cursor stays on the same words.
-function replaceEditorText(next) {
+function replaceEditorText(next, { fromOtherDevice = false } = {}) {
   const old = editor.value;
   let start = 0;
   while (start < old.length && start < next.length && old[start] === next[start]) start++;
@@ -1539,6 +2841,7 @@ function replaceEditorText(next) {
   while (oldEnd > start && nextEnd > start && old[oldEnd - 1] === next[nextEnd - 1]) { oldEnd--; nextEnd--; }
   editor.setRangeText(next.slice(start, nextEnd), start, oldEnd, "preserve");
   paintNote();
+  if (fromOtherDevice) return;
   trackChange({ separate: true });
   showChangesHint();
 }
@@ -1559,6 +2862,7 @@ async function showFile(root, parts, fromHome) {
   const path = parts.join("/");
   const current = {
     url: `/api/file?${apiQuery(root, path)}`,
+    href: pathFor(root, parts),
     draftKey: `draft:${root}/${path}`,
     base: null,
     saved: "",
@@ -1569,18 +2873,47 @@ async function showFile(root, parts, fromHome) {
     marks: [],
     history: null,
     reviewed: null,
+    stateTag: null,
+    stateDirty: false,
+    stateLoaded: false,
+    synced: null,
+    pushing: null,
+    loadingState: false,
+    reviewConfirmed: false,
+    removedMarks: [],
+    triedTexts: [],
+    scrollReady: false,
+    scrollSent: null,
   };
+  closeSearch({ moveFocus: false });
+  lockConflictButtons(false);
   showMarksInNote({ marks: [] });
   doc = current;
+  // The text goes in while the screen is still hidden, so it is laid out once instead of after the last note's.
+  // The last text seen shows at once, locked until the PC answers.
+  const cached = recallSeen(`note:${current.href}`);
+  // Asked before the text is laid out, which takes a phone hundreds of milliseconds on a big note.
+  const fileRequest = fetchFile(current, cached ? { "If-None-Match": cached.etag } : {});
+  const stateRequest = fetchNoteState(current);
+  const scrollRequest = fetchJson(stateUrl(current, "scroll")).catch(() => ({ value: null }));
+  // Failures are handled where these are awaited; this only stops the browser reporting them as unhandled first.
+  fileRequest.catch(() => {});
+  stateRequest.catch(() => {});
+  setEditorText(cached ? fromDisk(cached.raw) : "");
   show("edit", parts.at(-1), root, parts.slice(0, -1));
   $("edit-back").href = fromHome ? "/" : pathFor(root, parts.slice(0, -1));
   $("edit-back").setAttribute("aria-label", fromHome ? "Back to home" : "Back to folder");
   $("conflict").hidden = true;
   showEditMessage("");
-  setEditorText("");
+  editor.readOnly = false;
   $("note").scrollTop = 0;
   $("toc-open").hidden = true;
   $("marks-open").hidden = true;
+  $("search-open").hidden = true;
+  $("read-toggle").hidden = true;
+  $("read-toggle").setAttribute("aria-pressed", "false");
+  $("read-view").hidden = true;
+  $("read-view").replaceChildren();
   hideMarkPill();
   showUndoButtons(null);
   $("changes-view").hidden = true;
@@ -1590,9 +2923,11 @@ async function showFile(root, parts, fromHome) {
   editor.disabled = true;
   setStatus("Opening…");
 
+  if (cached) markScreenReady();
+
   let res;
   try {
-    res = await fetchFile(current);
+    res = await fileRequest;
   } catch {
     if (doc === current) {
       setStatus("Offline", "warn");
@@ -1601,44 +2936,68 @@ async function showFile(root, parts, fromHome) {
     return;
   }
   if (doc !== current) return;
-  if (!res.ok) {
+  if (!res.ok && !(res.status === 304 && cached)) {
     setStatus("Not opened", "warn");
-    showEditMessage(await res.text());
+    const message = await res.text();
+    const draft = readDraft(current);
+    if (doc !== current) return;
+    showEditMessage(message);
+    if (res.status === 404 && draft) {
+      $("edit-message").textContent = "File not found. Your unsaved text is below, so copy it before leaving.";
+      $("note").hidden = false;
+      setEditorText(draft.text);
+      editor.readOnly = true;
+      editor.disabled = false;
+    }
     return;
   }
-  const raw = decoder.decode(await res.arrayBuffer());
+  const raw = res.status === 304 ? cached.raw : decoder.decode(await res.arrayBuffer());
   if (doc !== current) return;
-  adoptVersion(current, raw, res.headers.get("ETag"));
+  adoptVersion(current, raw, res.headers.get("ETag") ?? cached.etag);
+  rememberSeen(`note:${current.href}`, { raw, etag: current.base });
   setEditorText(current.saved);
-  editor.disabled = false;
+  markScreenReady();
   $("toc-open").hidden = false;
   $("marks-open").hidden = false;
+  $("search-open").hidden = false;
+  $("read-toggle").hidden = false;
   setStatus("Saved");
 
   const draft = readDraft(current);
   if (draft && draft.text !== current.saved) {
     setEditorText(draft.text);
-    if (draft.base === current.base) {
+    // Versions are hashes, so a disk that returned to the draft's base looks untouched. Only a recent, undisputed draft saves itself.
+    const safe = draft.base === current.base && !draft.conflict && Date.now() - (draft.at ?? 0) < DRAFT_AUTOSAVE_MS;
+    if (safe) {
       save();
+      showToast("Restored your unsaved text");
     } else {
+      $("conflict-title").textContent = draft.base === current.base ? "You have older unsaved text." : "This file changed on the PC.";
       setConflict(current, true);
     }
   } else {
     clearDraft(current);
   }
-  loadHistory(current);
-  loadMarks(current);
-  loadReviewed(current);
-  restoreScroll(current);
-  // A conflict warning has to stay in view, so the sheet doesn't open over it.
-  if (current.conflict) return;
-  if (hasChanges(current)) {
-    openChanges();
-  } else if (paintedHeadings.length >= MIN_HEADINGS_TO_AUTO_OPEN) {
-    openContents();
-    // Nobody pressed anything yet, so no button should light up with a focus ring.
-    $("toc").focus({ preventScroll: true });
+  const localTop = readLocalState(current).scrollTop;
+  await loadState(current, stateRequest);
+  if (doc !== current) return;
+  if (current.stateLoaded) editor.disabled = false;
+  else if (!current.conflict) setStatus("Waiting for the PC…", "warn");
+  const [scroll] = await Promise.all([
+    scrollRequest,
+    document.fonts.status === "loaded" ? null : Promise.race([document.fonts.ready, new Promise((done) => setTimeout(done, FONT_WAIT_MS))]),
+  ]);
+  if (doc !== current) return;
+  restoreScroll(scroll.value, localTop);
+  current.scrollReady = true;
+  if (doc !== current) return;
+  // Changes not yet read show in the editor first; otherwise the note opens the way it was last read.
+  if (!hasChanges(current) && readingPreferred()) {
+    openReading();
+    return;
   }
+  showReviewDiff();
+  revealFirstChange();
 }
 
 async function save() {
@@ -1646,29 +3005,48 @@ async function save() {
   const current = doc;
   if (!current || current.base === null || current.conflict || current.saving || !isDirty(current)) return;
   const sent = editor.value;
+  current.triedTexts = [...current.triedTexts.filter((text) => text !== sent), sent].slice(-MAX_TRIED_TEXTS);
   current.saving = true;
+  await settleState(current);
   // Failed saves retry every few seconds, and showing each attempt would make the status flicker.
-  if (!current.failing) setStatus("Saving…");
+  if (!current.failing && doc === current) setStatus("Saving…");
   let savedOk = false;
   try {
+    const upload = await packed(toDisk(current, sent));
     const res = await fetch(current.url, {
       method: "PUT",
-      headers: { "If-Match": current.base },
-      body: toDisk(current, sent),
+      headers: { "If-Match": current.base, ...upload.headers },
+      body: upload.body,
+      signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
     });
     if (res.ok) {
       current.base = res.headers.get("ETag");
       current.saved = sent;
+      current.triedTexts = [];
       current.failing = false;
       savedOk = true;
+      settleDraft(current, sent);
       if (doc === current && !isDirty(current)) {
         clearDraft(current);
         setStatus("Saved");
       }
     } else if (res.status === 412) {
-      if (doc === current) {
-        keepDraft(current);
+      // The answer to an earlier save can get lost after it worked, and this device's own text is no conflict.
+      const latest = await fetchFile(current);
+      const raw = latest.ok ? decoder.decode(await latest.arrayBuffer()) : null;
+      if (raw !== null && current.triedTexts.includes(fromDisk(raw))) {
+        adoptVersion(current, raw, latest.headers.get("ETag"));
+        current.failing = false;
+        savedOk = true;
+        settleDraft(current, current.saved);
+        if (doc === current && !isDirty(current)) {
+          clearDraft(current);
+          setStatus("Saved");
+        }
+      } else if (doc === current) {
+        $("conflict-title").textContent = "This file changed on the PC.";
         setConflict(current, true);
+        keepDraft(current);
       }
     } else if (doc === current) {
       keepDraft(current);
@@ -1685,6 +3063,23 @@ async function save() {
     current.saving = false;
   }
   if (savedOk && doc === current && isDirty(current)) scheduleSave();
+  else if (savedOk && doc !== current) sendLeftBehind(current);
+}
+
+// Typing during a save and then leaving has no later save to carry it. If-Match keeps this as safe as any other save.
+async function sendLeftBehind(current) {
+  const draft = readDraft(current);
+  if (!draft || draft.conflict) return;
+  try {
+    const upload = await packed(toDisk(current, draft.text));
+    const res = await fetch(current.url, {
+      method: "PUT",
+      headers: { "If-Match": current.base, ...upload.headers },
+      body: upload.body,
+      signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
+    });
+    if (res.ok) localStorage.removeItem(current.draftKey);
+  } catch {}
 }
 
 function scheduleSave() {
@@ -1692,16 +3087,42 @@ function scheduleSave() {
   saveTimer = setTimeout(save, SAVE_DELAY_MS);
 }
 
+async function retryLoadingState(current) {
+  if (current.loadingState) return;
+  current.loadingState = true;
+  await loadState(current, fetchNoteState(current));
+  current.loadingState = false;
+  if (doc !== current || !current.stateLoaded) return;
+  editor.disabled = false;
+  if (!current.conflict) setStatus("Saved");
+  showReviewDiff();
+}
+
+// A slow link can make one check outlast the poll interval; a second one would restart the same download.
 async function checkForChanges() {
   const current = doc;
-  if (!current || current.base === null || current.saving || current.conflict || document.hidden) return;
+  if (!current || current.checking) return;
+  current.checking = true;
+  try {
+    await checkNote(current);
+  } finally {
+    current.checking = false;
+  }
+}
+
+async function checkNote(current) {
+  if (current.base !== null && !current.stateLoaded && !current.loadingState && !document.hidden && current.scrollReady) await retryLoadingState(current);
+  if (current.base === null || current.saving || current.conflict || document.hidden) return;
   if (isDirty(current)) return save();
   if (composing) return;
+  if (current.stateDirty || current.pushing) await settleState(current);
+  if (doc !== current) return;
   const asked = current.base;
   try {
     const res = await fetchFile(current, { "If-None-Match": asked });
     if (res.status === 304) {
-      if (doc === current && !isDirty(current)) setStatus("Saved");
+      if (doc === current && !isDirty(current) && current.stateLoaded) setStatus("Saved");
+      if (current.stateLoaded) await pullState(current);
       return;
     }
     if (!res.ok) {
@@ -1709,11 +3130,25 @@ async function checkForChanges() {
       return;
     }
     const raw = decoder.decode(await res.arrayBuffer());
+    const remote = await fetchNoteState(current, current.stateTag ? { "If-None-Match": current.stateTag } : {})
+      .then((answer) => (answer.unchanged ? { value: current.synced?.remote ?? null, tag: current.stateTag } : answer))
+      .catch(() => ({ value: null }));
     // The phone moved on while this was in flight; the next round decides.
     if (doc !== current || current.base !== asked || current.saving || isDirty(current) || composing) return;
     adoptVersion(current, raw, res.headers.get("ETag"));
-    replaceEditorText(current.saved);
-    setStatus("Updated from PC");
+    // State made for exactly this text means another device typed it, so it isn't a change to review.
+    const fromOtherDevice = current.stateLoaded && !current.stateDirty && !current.pushing && remote.value?.history.hash === hashText(current.saved);
+    const textBefore = editor.value;
+    let base = lingeringBase();
+    keepReadingSpot(clearReviewDiff);
+    replaceEditorText(current.saved, { fromOtherDevice });
+    if (fromOtherDevice) {
+      adoptState(current, remote);
+      // That device's typing is no change to show, so it goes into the text the dimmed changes are kept against.
+      if (base !== null) base = undoIntoReview(base, textBefore, current.saved);
+    }
+    showReviewDiff({ base });
+    setStatus("Updated");
   } catch {
     if (doc === current) setStatus("Offline", "warn");
   }
@@ -1741,45 +3176,108 @@ function noteChanged() {
 editor.addEventListener("compositionstart", () => { composing = true; });
 editor.addEventListener("compositionend", () => { composing = false; });
 
+function lockConflictButtons(locked) {
+  $("keep-mine").disabled = locked;
+  $("use-pc").disabled = locked;
+}
+
 $("keep-mine").addEventListener("click", async () => {
   const current = doc;
+  lockConflictButtons(true);
   try {
     const res = await fetchFile(current);
     if (!res.ok) throw new Error();
-    current.base = res.headers.get("ETag");
+    const raw = decoder.decode(await res.arrayBuffer());
+    if (doc !== current) return;
+    // Compares with what's on disk now, or text equal to the older version would look like there's nothing to save.
+    adoptVersion(current, raw, res.headers.get("ETag"));
     setConflict(current, false);
+    // Saving overwrites the PC's version, so it goes into Undo first: one step to it, then one back to this text.
+    // Undoing the second brings the PC's version back as changes not yet read.
+    const mine = editor.value;
+    if (current.history && current.saved !== mine) {
+      record(current.history, current.saved, Date.now(), { separate: true });
+      record(current.history, mine, Date.now(), { separate: true, keepsReview: true });
+      showUndoButtons(current.history);
+    }
+    // Empty steps mean they stayed for the other text, and sending them would wipe the server's.
+    if (current.synced) {
+      const { history } = stateNow(current);
+      current.synced = { ...current.synced, local: { marks: current.synced.local.marks, history: history.done.length || history.undone.length ? undefined : history } };
+    }
+    current.stateDirty = current.stateLoaded;
     await save();
   } catch {
-    setStatus("Offline, try again", "warn");
+    setStatus("Unable to reach the file. Try again", "warn");
+  } finally {
+    if (doc === current) lockConflictButtons(false);
   }
 });
 
 $("use-pc").addEventListener("click", async () => {
   const current = doc;
+  lockConflictButtons(true);
   try {
     const res = await fetchFile(current);
     if (!res.ok) throw new Error();
-    adoptVersion(current, decoder.decode(await res.arrayBuffer()), res.headers.get("ETag"));
+    const raw = decoder.decode(await res.arrayBuffer());
+    if (doc !== current) return;
+    // Still held back as a conflict here, so what gets sent can't replace the PC version's undo steps.
+    await settleState(current);
+    const remote = await fetchNoteState(current).catch(() => ({ value: null }));
+    if (doc !== current) return;
+    const mine = editor.value;
+    adoptVersion(current, raw, res.headers.get("ETag"));
     setEditorText(current.saved);
-    trackChange({ separate: true });
-    showChangesHint();
     clearDraft(current);
+    clearPending(current);
+    current.failing = false;
     setConflict(current, false);
     setStatus("Saved");
+    // That text may have come from another device, whose undo steps and review already belong to it.
+    const fits = current.stateLoaded && !current.stateDirty && !current.pushing && remote.value?.history.hash === hashText(current.saved);
+    if (fits) {
+      adoptState(current, remote);
+      // That device's steps replace this one's, so this device's text goes on top of them: Undo still brings it back.
+      if (current.history && mine !== current.saved) {
+        record(current.history, mine, Date.now(), { separate: true, keepsReview: true });
+        record(current.history, current.saved, Date.now(), { separate: true });
+        showUndoButtons(current.history);
+        scheduleState(current);
+      }
+      showReviewDiff();
+      return;
+    }
+    // The review on the server never had the discarded typing replayed into it.
+    if (current.synced) current.reviewed = current.synced.remote.reviewed;
+    trackChange({ separate: true });
+    showChangesHint();
+    showReviewDiff();
   } catch {
     setStatus("Offline, try again", "warn");
+  } finally {
+    if (doc === current) lockConflictButtons(false);
   }
 });
 
 // ---- Routing ----
 
-async function route(fromHome = false) {
+function route(fromHome = false) {
+  closeSearch({ moveFocus: false });
   $("toc").close();
   cancelAnimationFrame(flight);
   keepScroll();
-  keepHistory(doc);
+  if (doc && !hasChanges(doc)) {
+    changedPins.delete(doc.href);
+    folderChanged.delete(doc.href);
+  }
+  // After the reading position is taken, since struck-out text going away moves the lines.
+  clearReviewDiff();
+  if (doc?.base) rememberSeen(`note:${doc.href}`, { raw: toDisk(doc, doc.saved), etag: doc.base });
+  leaveState(doc);
   flushDraft();
-  await save();
+  // Not awaited: save() takes the note and its text before its first await, and the draft is kept by now.
+  save();
   doc = null;
   const [root, ...rest] = parsePath(location.pathname);
   if (!root) return showRoots();
@@ -1803,7 +3301,8 @@ function changeRoute(browserAnimatesIt) {
     return;
   }
   // The slide waits for the next screen's content, but never long enough to feel stuck on a slow connection.
-  const update = () => Promise.race([route(fromHome), new Promise((done) => setTimeout(done, CONTENT_WAIT_MS))]);
+  const ready = new Promise((done) => (markScreenReady = done));
+  const update = () => Promise.race([route(fromHome), ready, new Promise((done) => setTimeout(done, CONTENT_WAIT_MS))]);
   document.startViewTransition({ update, types: [to < from ? "back" : "forward"] });
 }
 
@@ -1824,15 +3323,19 @@ window.addEventListener("popstate", (event) => changeRoute(event.hasUAVisualTran
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     keepScroll();
-    keepHistory(doc);
+    leaveState(doc);
     flushDraft();
     save();
   } else {
     checkForChanges();
+    if (!$("list-screen").hidden) refreshDots();
   }
 });
 window.addEventListener("online", checkForChanges);
-setInterval(checkForChanges, POLL_MS);
+setInterval(() => {
+  checkForChanges();
+  if (!$("list-screen").hidden && !document.hidden) refreshDots();
+}, POLL_MS);
 route();
 </script>
 </body>

@@ -8,9 +8,10 @@ export const createHistory = (text) => ({ text, done: [], undone: [], at: 0 });
 export function diff(before, after) {
   const shortest = Math.min(before.length, after.length);
   let start = 0;
-  while (start < shortest && before[start] === after[start]) start++;
+  // Character codes, not one-letter strings: this runs on every key, over the whole note.
+  while (start < shortest && before.charCodeAt(start) === after.charCodeAt(start)) start++;
   let tail = 0;
-  while (tail < shortest - start && before[before.length - 1 - tail] === after[after.length - 1 - tail]) tail++;
+  while (tail < shortest - start && before.charCodeAt(before.length - 1 - tail) === after.charCodeAt(after.length - 1 - tail)) tail++;
   return { start, removed: before.slice(start, before.length - tail), inserted: after.slice(start, after.length - tail) };
 }
 
@@ -40,13 +41,14 @@ function trim(history) {
 }
 
 // A burst of typing is one step; a block edit or a change from the PC is always its own step.
-export function record(history, next, now, { separate = false } = {}) {
+// `keepsReview` marks a step whose undo must leave the review alone, like discarding changes.
+export function record(history, next, now, { separate = false, keepsReview = false } = {}) {
   if (next === history.text) return;
   const edit = diff(history.text, next);
   const last = history.done.at(-1);
   const merged = !separate && last && now - history.at < MERGE_WINDOW_MS ? merge(last, edit) : null;
   if (merged) history.done[history.done.length - 1] = merged;
-  else history.done.push({ ...edit, block: separate || isBlockEdit(edit), fromPc: separate });
+  else history.done.push({ ...edit, block: separate || isBlockEdit(edit), fromPc: separate, keepsReview });
   history.text = next;
   history.undone = [];
   history.at = now;
@@ -60,7 +62,7 @@ function step(history, from, to, oldText, newText) {
   const end = edit.start + edit[oldText].length;
   history.text = history.text.slice(0, edit.start) + edit[newText] + history.text.slice(end);
   history.at = 0;
-  return { start: edit.start, end, text: edit[newText], caret: edit.start + edit[newText].length, fromPc: edit.fromPc };
+  return { start: edit.start, end, text: edit[newText], caret: edit.start + edit[newText].length, fromPc: edit.fromPc, keepsReview: Boolean(edit.keepsReview) };
 }
 
 export const undo = (history) => step(history, "done", "undone", "inserted", "removed");

@@ -5,7 +5,7 @@ const offsets = (marks: { offset: number }[]) => marks.map((mark) => mark.offset
 
 describe("placing a mark", () => {
   it("remembers the exact character, with the text on both sides", () => {
-    expect(createMark("hello world", 5)).toEqual({ offset: 5, before: "hello", after: " world" });
+    expect(createMark("hello world", 5)).toMatchObject({ offset: 5, before: "hello", after: " world" });
   });
 
   it("keeps only a short piece of text around it", () => {
@@ -25,7 +25,7 @@ describe("keeping a mark on its character while the note is edited", () => {
   it("moves right when text is typed before it", () => {
     const [mark] = follow(6, "hello world", 0, "", "oh ");
 
-    expect(mark).toEqual({ offset: 9, before: "oh hello ", after: "world" });
+    expect(mark).toMatchObject({ offset: 9, before: "oh hello ", after: "world" });
   });
 
   it("moves left when text before it is deleted", () => {
@@ -89,7 +89,7 @@ describe("finding marks again when a note is opened", () => {
   it("sorts marks and refreshes their surroundings", () => {
     const text = "one two three";
 
-    expect(relocate([createMark(text, 8), createMark(text, 4)], text)).toEqual([createMark(text, 4), createMark(text, 8)]);
+    expect(offsets(relocate([createMark(text, 8), createMark(text, 4)], text))).toEqual([4, 8]);
   });
 });
 
@@ -106,5 +106,57 @@ describe("counting marks per heading", () => {
 
   it("leaves out marks above the first heading", () => {
     expect(countPerHeading(headings, [{ offset: 3 }])).toEqual([0, 0, 0]);
+  });
+});
+
+describe("a mark's identity", () => {
+  it("survives edits and relocating, so devices can tell which mark is which", () => {
+    const mark = createMark("hello world", 6);
+
+    const followed = followEdit([mark], { start: 0, removed: "", inserted: "oh " }, "oh hello world")[0]!;
+    const relocated = relocate([followed], "x oh hello world")[0]!;
+
+    expect(relocated.id).toBe(mark.id);
+    expect(relocated.offset).toBe(11);
+  });
+
+  it("differs between marks", () => {
+    expect(createMark("hello", 1).id).not.toBe(createMark("hello", 1).id);
+  });
+});
+
+describe("a mark in a note edited while it was closed", () => {
+  it("finds its place by the text on one side when the other side changed", () => {
+    const text = `${"short line\n".repeat(5)}The quick brown fox jumps over the lazy dog today\nend`;
+    const mark = createMark(text, text.indexOf("jumps"));
+    const edited = `${"added line\n".repeat(20)}${text.replace("jumps", "leaps")}`;
+
+    expect(relocate([mark], edited)[0]!.offset).toBe(edited.indexOf("leaps"));
+  });
+});
+
+describe("marks through an outside edit in two places", () => {
+  const lines = Array.from({ length: 40 }, (_, i) => `This is line number ${i} of the script`);
+  const before = lines.join("\n");
+  const offsetOf = (text: string, line: number) => text.indexOf(`line number ${line} `);
+
+  it("keeps marks between the two edits on their own lines", () => {
+    const after = ["FIRST EDIT", ...lines.slice(1, 39), "LAST EDIT"].join("\n");
+    const marks = [10, 20, 30].map((line) => createMark(before, offsetOf(before, line)));
+    const start = 0;
+    const removed = before;
+    const inserted = after;
+
+    const followed = followEdit(marks, { start, removed, inserted }, after);
+
+    expect(followed.map(({ offset }: { offset: number }) => offset)).toEqual([10, 20, 30].map((line) => offsetOf(after, line)));
+  });
+
+  it("still gathers marks at the edit when their text was really replaced", () => {
+    const text = "aaaaaaaaaa something unique here bbbbbbbbbb";
+    const mark = createMark(text, 20);
+    const after = "aaaaaaaaaa X bbbbbbbbbb";
+
+    expect(followEdit([mark], { start: 11, removed: "something unique here", inserted: "X" }, after)[0]!.offset).toBe(11);
   });
 });
