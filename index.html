@@ -273,6 +273,20 @@
   .rows small { display: block; font-size: 0.875rem; line-height: 1.35; color: var(--muted); }
   .rows .kind { color: var(--muted); }
   .rows .is-file .kind { color: var(--accent); }
+  #show-all { width: 44px; }
+  #show-all[aria-pressed="true"] { color: var(--accent); }
+  #raw-text {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    margin: 0;
+    padding: 16px;
+    font: 0.8125rem/1.5 ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    tab-size: 4;
+  }
+  #raw-text:empty { display: none; }
   /* The same green as added text in a diff, and away from the pin, which is the accent color. */
   .rows .changed { display: inline-block; width: 8px; height: 8px; margin-inline-start: 8px; vertical-align: 0.1em; border-radius: 50%; background: #A5BB4B; }
   .rows .chevron { color: var(--muted); width: 16px; height: 16px; }
@@ -665,6 +679,7 @@
   <symbol id="i-top" viewBox="0 0 24 24"><path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/></symbol>
   <symbol id="i-bottom" viewBox="0 0 24 24"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></symbol>
   <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
 </svg>
 
@@ -675,6 +690,7 @@
       <h1 id="list-title" tabindex="-1"></h1>
       <small id="list-where" class="where"></small>
     </div>
+    <button id="show-all" class="note-action" type="button" aria-label="Show all files" aria-pressed="false" hidden><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></button>
     <button id="new-file" type="button" aria-expanded="false" aria-controls="new-form" hidden>New file</button>
   </header>
   <form id="new-form" hidden novalidate>
@@ -698,6 +714,18 @@
       <ul id="pinned" class="rows"></ul>
     </section>
   </div>
+</main>
+
+<main id="raw-screen" class="screen" hidden>
+  <header>
+    <a id="raw-back" class="back" aria-label="Back to folder"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></a>
+    <div class="titles">
+      <h1 id="raw-title" tabindex="-1"></h1>
+      <small id="raw-where" class="where"></small>
+    </div>
+  </header>
+  <p id="raw-message" class="message" role="status" hidden></p>
+  <pre id="raw-text" tabindex="0" aria-labelledby="raw-title"></pre>
 </main>
 
 <main id="edit-screen" class="screen" hidden>
@@ -859,6 +887,7 @@ function fullPath(root, parts) {
   const separator = info.path.includes("\\") ? "\\" : "/";
   return [info.path.replace(/[\\/]$/, ""), ...parts].join(separator);
 }
+const isNoteHref = (href) => /\.md$/i.test(href);
 const apiQuery = (root, path) => `root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`;
 
 let redrawFolder = null;
@@ -980,7 +1009,7 @@ async function refreshChangedPins() {
   if (!pins.size) return;
   const turn = ++pinsTurn;
   const batches = [[]];
-  for (const pin of pins) {
+  for (const pin of [...pins].filter(isNoteHref)) {
     const part = `note=${encodeURIComponent(pin)}`;
     if (batches.at(-1).join("&").length + part.length > MAX_CHECK_QUERY) batches.push([]);
     batches.at(-1).push(part);
@@ -1022,12 +1051,11 @@ function showWhere(id, root, parts) {
 }
 
 function show(screen, title, root, parts = []) {
-  $("list-screen").hidden = screen !== "list";
-  $("edit-screen").hidden = screen !== "edit";
+  for (const name of ["list", "edit", "raw"]) $(`${name}-screen`).hidden = screen !== name;
   document.title = title;
-  const heading = $(screen === "list" ? "list-title" : "edit-title");
-  $(screen === "list" ? "list-title" : "edit-name").textContent = title;
-  showWhere(screen === "list" ? "list-where" : "edit-where", root, parts);
+  const heading = $(`${screen}-title`);
+  $(screen === "edit" ? "edit-name" : `${screen}-title`).textContent = title;
+  showWhere(`${screen}-where`, root, parts);
   heading.focus({ preventScroll: true });
 }
 
@@ -1083,12 +1111,13 @@ async function refreshDots() {
   } catch {}
 }
 
-function buildRow({ href, label, isFile, hint, changed }) {
+function buildRow({ href, label, isFile, isOther, pinnable = isFile, hint, changed }) {
   const row = document.createElement("li");
   row.dataset.key = href;
   const link = document.createElement("a");
   link.href = href;
   if (isFile) link.className = "is-file";
+  if (isOther) link.className = "is-other";
   const text = document.createElement("span");
   text.textContent = label;
   if (changed) text.append(buildDot());
@@ -1097,10 +1126,10 @@ function buildRow({ href, label, isFile, hint, changed }) {
     where.textContent = hint;
     text.append(where);
   }
-  link.append(icon(isFile ? "#i-file" : "#i-folder", "kind"), text);
-  if (!isFile) link.append(icon("#i-next", "chevron"));
+  link.append(icon(isFile || isOther ? "#i-file" : "#i-folder", "kind"), text);
+  if (!isFile && !isOther) link.append(icon("#i-next", "chevron"));
   row.append(link);
-  if (isFile) row.append(buildPinButton(href, hint || label));
+  if (pinnable) row.append(buildPinButton(href, hint || label));
   return row;
 }
 
@@ -1138,7 +1167,7 @@ function renderPinned() {
   const rows = [...pins]
     .map((href) => {
       const [root, ...parts] = parsePath(href);
-      return { href, isFile: true, label: parts.at(-1), hint: fullPath(root, parts), changed: changedPins.has(href) };
+      return { href, isFile: isNoteHref(href), pinnable: true, label: parts.at(-1), hint: fullPath(root, parts), changed: changedPins.has(href) };
     })
     .sort((a, b) => a.label.localeCompare(b.label) || a.hint.localeCompare(b.hint));
   $("pinned").replaceChildren(...rows.map(buildRow));
@@ -1177,6 +1206,7 @@ async function showRoots() {
   const openedAt = location.pathname;
   show("list", "MD Phone");
   $("list-back").hidden = true;
+  $("show-all").hidden = true;
   $("new-file").hidden = true;
   $("new-where-field").hidden = true;
   closeNewForm();
@@ -1268,17 +1298,59 @@ async function showFolder(root, parts) {
   }
 }
 
-function renderFolder(root, parts, { dirs, files, changed = [] }) {
+function renderFolder(root, parts, { dirs, files, changed = [], others = [] }) {
   const hrefOf = (name) => pathFor(root, [...parts, name]);
   folderChanged = new Set(changed.map(hrefOf));
   const fileRow = (name) => ({ href: hrefOf(name), label: name, isFile: true, changed: folderChanged.has(hrefOf(name)) });
+  const dirRow = (name) => ({ href: hrefOf(name), label: name, pinnable: true });
+  const pinned = (name) => pins.has(hrefOf(name));
   redrawFolder = () => renderItems([
-    ...files.filter((name) => pins.has(hrefOf(name))).map(fileRow),
-    ...dirs.map((name) => ({ href: hrefOf(name), label: name })),
-    ...files.filter((name) => !pins.has(hrefOf(name))).map(fileRow),
+    ...files.filter(pinned).map(fileRow),
+    ...dirs.filter(pinned).map(dirRow),
+    ...dirs.filter((name) => !pinned(name)).map(dirRow),
+    ...files.filter((name) => !pinned(name)).map(fileRow),
+    ...(showAllFiles ? others.map((name) => ({ href: `${hrefOf(name)}?raw`, label: name, isOther: true })) : []),
   ], "No markdown files here yet. Tap New file to add one.");
+  $("show-all").hidden = false;
   $("new-file").hidden = false;
   redrawFolder();
+  markScreenReady();
+}
+
+let showAllFiles = false;
+try { showAllFiles = localStorage.getItem("show-all-files") === "1"; } catch {}
+$("show-all").setAttribute("aria-pressed", String(showAllFiles));
+
+$("show-all").addEventListener("click", () => {
+  showAllFiles = !showAllFiles;
+  $("show-all").setAttribute("aria-pressed", String(showAllFiles));
+  try { localStorage.setItem("show-all-files", showAllFiles ? "1" : "0"); } catch {}
+  redrawFolder?.();
+});
+
+// Files other than notes open read-only, as the text on disk.
+async function showRaw(root, parts) {
+  folder = null;
+  redrawFolder = null;
+  const openedAt = location.href;
+  show("raw", parts.at(-1), root, parts.slice(0, -1));
+  $("raw-back").href = pathFor(root, parts.slice(0, -1));
+  $("raw-text").textContent = "";
+  $("raw-message").textContent = "Opening…";
+  $("raw-message").hidden = false;
+  let problem;
+  try {
+    const res = await fetch(`/api/raw?${apiQuery(root, parts.join("/"))}`);
+    const text = await res.text();
+    if (location.href !== openedAt) return;
+    if (res.ok) $("raw-text").textContent = text;
+    else problem = text;
+  } catch {
+    problem = `Unable to open this file. ${OFFLINE_HELP}`;
+  }
+  if (location.href !== openedAt) return;
+  $("raw-message").textContent = problem ?? "";
+  $("raw-message").hidden = !problem;
   markScreenReady();
 }
 
@@ -3419,6 +3491,7 @@ function route(fromHome = false) {
   doc = null;
   const [root, ...rest] = parsePath(location.pathname);
   if (!root) return showRoots();
+  if (new URLSearchParams(location.search).has("raw")) return showRaw(root, rest);
   if (/\.md$/i.test(rest.at(-1) ?? "")) return showFile(root, rest, fromHome);
   return showFolder(root, rest);
 }

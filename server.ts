@@ -1,4 +1,4 @@
-import { lstat, mkdir, readdir, realpath, rename, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const PORT = 4380;
@@ -7,6 +7,8 @@ const CLIENT_MODULES = new Set(["/changes.js", "/headings.js", "/history.js", "/
 const FONTS = new Set(["latin", "latin-ext", "vietnamese"].map((subset) => `/vendor/fonts/inter-${subset}-wght-normal.woff2`));
 const HIDDEN_DIRS = new Set(["node_modules"]);
 const STATE_KINDS = new Set(["note", "scroll"]);
+// Other files are only shown as plain text, and a phone gains nothing from megabytes of it.
+const RAW_MAX_BYTES = 2_000_000;
 // Windows refuses to replace a file another program has open for a moment.
 const BUSY_CODES = new Set(["EBUSY", "EPERM", "EACCES"]);
 // Characters Windows forbids in a file name, direction marks that make a name read differently than it is,
@@ -169,11 +171,13 @@ async function list(dir: string, note: (name: string) => string, stateDir: strin
       .map((entry) => entry.name)
       .sort((a, b) => a.localeCompare(b));
   const files = names((e) => e.isFile() && /\.md$/i.test(e.name));
+  const others = names((e) => e.isFile() && !/\.md$/i.test(e.name) && !e.name.startsWith("."));
   const changed = await Promise.all(files.map((name) => changedSinceReview(stateDir, note(name), join(dir, name))));
   const body = JSON.stringify({
     dirs: names((e) => e.isDirectory() && !e.name.startsWith(".") && !HIDDEN_DIRS.has(e.name)),
     files,
     changed: files.filter((_, i) => changed[i]),
+    others,
   });
   // A folder open on screen is asked again every few seconds, and usually nothing in it changed.
   const headers = { "Cache-Control": "no-cache", ...NO_SNIFF, ETag: versionOf(new TextEncoder().encode(body)) };
@@ -204,6 +208,19 @@ async function openFile(path: string, req: Request) {
   const headers = { ...NO_STORE, ETag: version };
   if (req.headers.get("If-None-Match") === version) return new Response(null, { status: 304, headers });
   return sendPacked(bytes, req, { ...headers, "Content-Type": "text/markdown; charset=utf-8" });
+}
+
+async function openRaw(path: string, req: Request) {
+  const info = await stat(path);
+  if (!info.isFile()) return status(404, "File not found.");
+  if (info.size > RAW_MAX_BYTES) return status(413, "This file is too big to show here. Open it on the PC.");
+  const bytes = await Bun.file(path).bytes();
+  try {
+    utf8.decode(bytes);
+  } catch {
+    return status(415, "This file isn't text, so it can't be shown here. Open it on the PC.");
+  }
+  return sendPacked(bytes, req, { ...NO_STORE, "Content-Type": "text/plain; charset=utf-8" });
 }
 
 // shortcut: a program outside this server could still write between the last check and the rename (microseconds),
@@ -341,10 +358,20 @@ function describeRoot(name: string, dir: string) {
   return { name, system: dir.startsWith("/") ? "Linux" : "Windows", path: dir };
 }
 
-function isNotePath(pin: string, allowed: Record<string, string>) {
+// A pin is a note or a folder, and only the page knows which; either way it must sit in an allowed root.
+function isPinPath(pin: string, allowed: Record<string, string>) {
   try {
     const [empty, root] = pin.split("/");
-    return empty === "" && !!root && Object.hasOwn(allowed, decodeURIComponent(root)) && /\.md$/i.test(decodeURIComponent(pin));
+    decodeURIComponent(pin);
+    return empty === "" && !!root && Object.hasOwn(allowed, decodeURIComponent(root));
+  } catch {
+    return false;
+  }
+}
+
+function isNotePath(pin: string, allowed: Record<string, string>) {
+  try {
+    return isPinPath(pin, allowed) && /\.md$/i.test(decodeURIComponent(pin));
   } catch {
     return false;
   }
@@ -369,7 +396,7 @@ async function handlePins(req: Request, url: URL, path: string, allowed: Record<
   // PUT and DELETE, not POST: browsers must ask before sending them cross-site, and this server never agrees.
   if (req.method !== "PUT" && req.method !== "DELETE") return status(405, "Method not allowed.");
   const pin = url.searchParams.get("pin") ?? "";
-  if (!isNotePath(pin, allowed)) return status(400, "Only markdown files in the allowed folders can be pinned.");
+  if (!isPinPath(pin, allowed)) return status(400, "Only files and folders in the allowed folders can be pinned.");
   return changePin(path, pin, req.method === "PUT");
 }
 
@@ -446,9 +473,11 @@ export function createHandler(
     const isList = url.pathname === "/api/list";
     const isCreate = url.pathname === "/api/create";
     const isRename = url.pathname === "/api/rename";
-    if (!isList && !isCreate && !isRename && url.pathname !== "/api/file") return status(404, "Not found.");
+    const isRaw = url.pathname === "/api/raw";
+    if (!isList && !isCreate && !isRename && !isRaw && url.pathname !== "/api/file") return status(404, "Not found.");
     // PUT, not POST: browsers must ask before sending it cross-site, and this server never agrees.
     if ((isCreate || isRename) && req.method !== "PUT") return status(405, "Method not allowed.");
+    if (isRaw && req.method !== "GET") return status(405, "Method not allowed.");
 
     const rootName = url.searchParams.get("root") ?? "";
     const rootDir = Object.hasOwn(allowed, rootName) ? allowed[rootName] : undefined;
@@ -462,6 +491,7 @@ export function createHandler(
         return await list(target, (name) => notePath(rootName, [...parts, name]), stateDir, req);
       }
       if (isCreate) return await createFile(target, url.searchParams.get("name") ?? "");
+      if (isRaw) return await openRaw(target, req);
       if (!/\.md$/i.test(target)) return status(403, "Only markdown files can be edited.");
       if (isRename) return await renameFile(rootName, rootDir, target, url.searchParams.get("name") ?? "", pinsPath, stateDir);
       if (req.method === "GET") return await openFile(target, req);

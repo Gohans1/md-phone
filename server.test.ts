@@ -376,7 +376,7 @@ describe("renaming a file", () => {
     expect(await movedScroll.text()).toBe('{"top":120}');
 
     const listed = await (await app(new Request("http://x/api/list?root=docs&path=sub"))).json();
-    expect(listed).toEqual({ dirs: [], files: ["new name.md"], changed: ["new name.md"] });
+    expect(listed).toEqual({ dirs: [], files: ["new name.md"], changed: ["new name.md"], others: [] });
   });
 
   it("allows changing only letter case and keeps a same-name rename harmless", async () => {
@@ -463,6 +463,35 @@ describe("renaming a file", () => {
       expect(await readFile(join(root, "b.md"), "utf8")).toBe("old");
     }
     expect(await readdir(root)).toEqual(["b.md"]);
+  });
+});
+
+describe("showing other files as plain text", () => {
+  const rawUrl = (path: string) => `http://x/api/raw?root=docs&path=${encodeURIComponent(path)}`;
+
+  it("sends a text file as plain text, so a browser never runs it", async () => {
+    await writeFile(join(root, "page.html"), "<script>alert(1)</script>");
+
+    const shown = await handle(new Request(rawUrl("page.html")));
+
+    expect(shown.status).toBe(200);
+    expect(shown.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
+    expect(shown.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(await shown.text()).toBe("<script>alert(1)</script>");
+  });
+
+  it("refuses files that aren't text or are too big, folders, paths outside the root, and writes", async () => {
+    await writeFile(join(root, "photo.png"), new Uint8Array([0x89, 0x50, 0xff, 0xfe]));
+    await writeFile(join(root, "big.log"), "x".repeat(2_000_001));
+    await writeFile(join(base, "secret.txt"), "secret");
+    await mkdir(join(root, "sub"));
+
+    expect((await handle(new Request(rawUrl("photo.png")))).status).toBe(415);
+    expect((await handle(new Request(rawUrl("big.log")))).status).toBe(413);
+    expect((await handle(new Request(rawUrl("sub")))).status).toBe(404);
+    expect((await handle(new Request(rawUrl("../secret.txt")))).status).toBe(403);
+    expect((await handle(new Request(rawUrl("missing.txt")))).status).toBe(404);
+    expect((await handle(new Request(rawUrl("big.log"), { method: "PUT", body: "x" }))).status).toBe(405);
   });
 });
 
@@ -633,7 +662,13 @@ describe("pins shared between devices", () => {
     expect((await pinsOf(pc)).sort()).toEqual(names);
   });
 
-  it.each(["//evil.example/a.md", "/other/a.md", "/docs/a.txt", "/docs/%E0%A4%A.md", "a.md", ""])(
+  it("pins a folder too", async () => {
+    await phone(new Request(pinUrl("/docs/my%20notes"), { method: "PUT" }));
+
+    expect(await pinsOf(pc)).toEqual(["/docs/my%20notes"]);
+  });
+
+  it.each(["//evil.example/a.md", "/other/a.md", "/other", "/docs/%E0%A4%A.md", "a.md", ""])(
     "refuses the pin %p",
     async (pin) => {
       const answer = await phone(new Request(pinUrl(pin), { method: "PUT" }));
@@ -776,17 +811,18 @@ describe("note state shared between devices", () => {
 });
 
 describe("listing a folder", () => {
-  it("shows folders and markdown files, hiding everything else", async () => {
+  it("shows folders and markdown files, with other files apart and hidden ones left out", async () => {
     await writeFile(join(root, "b.md"), "");
     await writeFile(join(root, "a.MD"), "");
     await writeFile(join(root, "c.txt"), "");
+    await writeFile(join(root, ".env"), "");
     await mkdir(join(root, "notes"));
     await mkdir(join(root, ".git"));
     await mkdir(join(root, "node_modules"));
 
     const listed = await handle(new Request("http://x/api/list?root=docs&path="));
 
-    expect(await listed.json()).toEqual({ dirs: ["notes"], files: ["a.MD", "b.md"], changed: [] });
+    expect(await listed.json()).toEqual({ dirs: ["notes"], files: ["a.MD", "b.md"], changed: [], others: ["c.txt"] });
   });
 
   it("names the roots without touching their folders", async () => {
