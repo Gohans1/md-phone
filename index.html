@@ -792,6 +792,7 @@ const FLY_MS = 180;
 const CONTENT_WAIT_MS = 250;
 const SCROLL_DELAY_MS = 200;
 const HISTORY_DELAY_MS = 500;
+const MIN_HEADINGS_TO_AUTO_OPEN = 5;
 const STATE_WAIT_MS = 1000;
 const STATE_WRITE_TRIES = 5;
 const FONT_WAIT_MS = 1000;
@@ -3122,13 +3123,18 @@ async function showFile(root, parts, fromHome) {
   restoreScroll(scroll.value, localTop);
   current.scrollReady = true;
   if (doc !== current) return;
-  // Changes not yet read show in the editor first; otherwise the note opens the way it was last read.
-  if (!hasChanges(current) && readingPreferred()) {
-    openReading();
-    return;
+  // Changes not yet read show in the editor first; otherwise the note opens the way it was last read, contents first if it is long.
+  const changed = hasChanges(current);
+  if (!changed && readingPreferred()) {
+    await openReading();
+  } else {
+    showReviewDiff();
+    revealFirstChange();
   }
-  showReviewDiff();
-  revealFirstChange();
+  if (doc !== current || changed || current.conflict || paintedHeadings.length < MIN_HEADINGS_TO_AUTO_OPEN) return;
+  openContents();
+  // Nobody pressed anything yet, so no button should light up with a focus ring.
+  $("toc").focus({ preventScroll: true });
 }
 
 async function save() {
