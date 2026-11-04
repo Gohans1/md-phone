@@ -299,6 +299,173 @@ describe("creating a file", () => {
   });
 });
 
+describe("renaming a file", () => {
+  const renameUrl = (path: string, name: string) =>
+    `http://x/api/rename?root=docs&path=${encodeURIComponent(path)}&name=${encodeURIComponent(name)}`;
+
+  it("renames a markdown file, adds .md when missing, and keeps its bytes intact", async () => {
+    const bytes = Buffer.from("\uFEFFdòng một\r\ndòng hai\r\n");
+    await writeFile(join(root, "old.md"), bytes);
+
+    const renamed = await handle(new Request(renameUrl("old.md", "  Đã đổi tên  "), { method: "PUT" }));
+
+    expect(renamed.status).toBe(200);
+    expect(await renamed.json()).toEqual({ name: "Đã đổi tên.md" });
+    expect(await readdir(root)).toEqual(["Đã đổi tên.md"]);
+    expect(Buffer.from(await readFile(join(root, "Đã đổi tên.md"))).equals(bytes)).toBe(true);
+  });
+
+  it("renames a file inside its subfolder without moving it elsewhere", async () => {
+    await mkdir(join(root, "my notes"));
+    await writeFile(join(root, "my notes", "draft.md"), "hello");
+
+    const renamed = await handle(new Request(renameUrl("my notes/draft.md", "final.md"), { method: "PUT" }));
+
+    expect(renamed.status).toBe(200);
+    expect(await readdir(join(root, "my notes"))).toEqual(["final.md"]);
+    expect(await readFile(join(root, "my notes", "final.md"), "utf8")).toBe("hello");
+  });
+
+  it("moves the file's pin, note state, scroll position, and unread-change dot to the new name", async () => {
+    const pinsFile = join(base, "pins.json");
+    const stateDir = join(base, "state");
+    const app = createHandler({ docs: root }, pinsFile, stateDir);
+    await mkdir(join(root, "sub"));
+    await writeFile(join(root, "sub", "old.md"), "written by AI");
+    await writeFile(join(root, "keep.md"), "stay");
+
+    await app(new Request(`http://x/api/pins?pin=${encodeURIComponent("/docs/keep.md")}`, { method: "PUT" }));
+    await app(new Request(`http://x/api/pins?pin=${encodeURIComponent("/docs/sub/old.md")}`, { method: "PUT" }));
+    const savedState = await app(
+      new Request(`http://x/api/state?kind=note&note=${encodeURIComponent("/docs/sub/old.md")}`, {
+        method: "PUT",
+        headers: { "If-None-Match": "*" },
+        body: JSON.stringify({ marks: [4], reviewed: "earlier text", history: { done: [], undone: [], hash: "" } }),
+      }),
+    );
+    await app(
+      new Request(`http://x/api/state?kind=scroll&note=${encodeURIComponent("/docs/sub/old.md")}`, {
+        method: "PUT",
+        body: '{"top":120}',
+      }),
+    );
+
+    const renamed = await app(new Request(renameUrl("sub/old.md", "new name"), { method: "PUT" }));
+    expect(renamed.status).toBe(200);
+
+    const pins = await (await app(new Request("http://x/api/pins"))).json();
+    expect(pins).toEqual(["/docs/keep.md", "/docs/sub/new%20name.md"]);
+
+    const oldState = await app(new Request(`http://x/api/state?kind=note&note=${encodeURIComponent("/docs/sub/old.md")}`));
+    expect(oldState.status).toBe(404);
+
+    const movedState = await app(
+      new Request(`http://x/api/state?kind=note&note=${encodeURIComponent("/docs/sub/new%20name.md")}`),
+    );
+    expect(movedState.status).toBe(200);
+    expect(movedState.headers.get("ETag")).toBe(savedState.headers.get("ETag"));
+    expect(await movedState.json()).toEqual({
+      marks: [4],
+      reviewed: "earlier text",
+      history: { done: [], undone: [], hash: "" },
+    });
+
+    const movedScroll = await app(
+      new Request(`http://x/api/state?kind=scroll&note=${encodeURIComponent("/docs/sub/new%20name.md")}`),
+    );
+    expect(await movedScroll.text()).toBe('{"top":120}');
+
+    const listed = await (await app(new Request("http://x/api/list?root=docs&path=sub"))).json();
+    expect(listed).toEqual({ dirs: [], files: ["new name.md"], changed: ["new name.md"] });
+  });
+
+  it("allows changing only letter case and keeps a same-name rename harmless", async () => {
+    const app = createHandler({ docs: root }, join(base, "pins.json"), join(base, "state"));
+    await writeFile(join(root, "notes.md"), "case test");
+    await app(new Request(`http://x/api/pins?pin=${encodeURIComponent("/docs/notes.md")}`, { method: "PUT" }));
+
+    const cased = await app(new Request(renameUrl("notes.md", "Notes.md"), { method: "PUT" }));
+    expect(cased.status).toBe(200);
+    expect(await cased.json()).toEqual({ name: "Notes.md" });
+    expect(await readdir(root)).toEqual(["Notes.md"]);
+    expect(await readFile(join(root, "Notes.md"), "utf8")).toBe("case test");
+    expect(await (await app(new Request("http://x/api/pins"))).json()).toEqual(["/docs/Notes.md"]);
+
+    const same = await app(new Request(renameUrl("Notes.md", "Notes"), { method: "PUT" }));
+    expect(same.status).toBe(200);
+    expect(await same.json()).toEqual({ name: "Notes.md" });
+    expect(await readFile(join(root, "Notes.md"), "utf8")).toBe("case test");
+  });
+
+  it("refuses to overwrite another file or folder that already has that name", async () => {
+    await writeFile(join(root, "a.md"), "first");
+    await writeFile(join(root, "b.md"), "second");
+    await mkdir(join(root, "folder.md"));
+
+    const ontoFile = await handle(new Request(renameUrl("a.md", "b.md"), { method: "PUT" }));
+    const ontoDir = await handle(new Request(renameUrl("a.md", "folder.md"), { method: "PUT" }));
+
+    expect(ontoFile.status).toBe(409);
+    expect(ontoDir.status).toBe(409);
+    expect(await readFile(join(root, "a.md"), "utf8")).toBe("first");
+    expect(await readFile(join(root, "b.md"), "utf8")).toBe("second");
+  });
+
+  it("asks for a shorter name when the new name is too long for the disk", async () => {
+    await writeFile(join(root, "a.md"), "keep");
+
+    const renamed = await handle(new Request(renameUrl("a.md", "a".repeat(300)), { method: "PUT" }));
+
+    expect(renamed.status).toBe(400);
+    expect(await readFile(join(root, "a.md"), "utf8")).toBe("keep");
+  });
+
+  it.each(["", "   ", "../escape", "a/b", "a\\b", "a:b", "CON", "nul.md", "COM¹", "a\u202Etxt.md", ".md", ".hidden"])(
+    "refuses the invalid new name %p",
+    async (name) => {
+      await writeFile(join(root, "a.md"), "keep");
+
+      const renamed = await handle(new Request(renameUrl("a.md", name), { method: "PUT" }));
+
+      expect(renamed.status).toBe(400);
+      expect(await readdir(root)).toEqual(["a.md"]);
+    },
+  );
+
+  it("refuses missing files, folders, non-markdown files, paths outside the root, and POST", async () => {
+    await writeFile(join(base, "secret.md"), "secret");
+    await writeFile(join(root, "a.txt"), "text");
+    await mkdir(join(root, "sub"));
+    await mkdir(join(root, "dir.md"));
+
+    expect((await handle(new Request(renameUrl("missing.md", "b.md"), { method: "PUT" }))).status).toBe(404);
+    expect((await handle(new Request(renameUrl("dir.md", "b.md"), { method: "PUT" }))).status).toBe(404);
+    expect((await handle(new Request(renameUrl("sub", "b.md"), { method: "PUT" }))).status).toBe(403);
+    expect((await handle(new Request(renameUrl("a.txt", "b.md"), { method: "PUT" }))).status).toBe(403);
+    expect((await handle(new Request(renameUrl("../secret.md", "b.md"), { method: "PUT" }))).status).toBe(403);
+    expect((await handle(new Request(renameUrl("missing.md", "b.md"), { method: "POST" }))).status).toBe(405);
+  });
+
+  it("waits for an in-flight save before renaming so no edits are lost", async () => {
+    await writeFile(join(root, "a.md"), "old");
+    const opened = await handle(new Request(fileUrl("a.md")));
+
+    const [saved, renamed] = await Promise.all([
+      handle(new Request(fileUrl("a.md"), { method: "PUT", headers: { "If-Match": opened.headers.get("ETag")! }, body: "new text" })),
+      handle(new Request(renameUrl("a.md", "b.md"), { method: "PUT" })),
+    ]);
+
+    expect(renamed.status).toBe(200);
+    if (saved.status === 200) {
+      expect(await readFile(join(root, "b.md"), "utf8")).toBe("new text");
+    } else {
+      expect(saved.status).toBe(404);
+      expect(await readFile(join(root, "b.md"), "utf8")).toBe("old");
+    }
+    expect(await readdir(root)).toEqual(["b.md"]);
+  });
+});
+
 describe("answering only for this machine's own names", () => {
   const withHost = (host: string) => new Request("http://x/api/roots", { headers: { host } });
 

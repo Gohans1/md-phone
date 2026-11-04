@@ -98,16 +98,49 @@
   #edit-screen #status { padding-inline-start: 4px; }
   #status { padding-inline-end: 4px; }
   /* One line only, so the header keeps its height and the note never shifts when undo appears mid-typing. */
-  #edit-title { display: block; white-space: nowrap; text-overflow: ellipsis; }
-  #edit-screen .titles { min-width: 28px; }
+  #edit-title { display: flex; overflow: visible; }
+  #edit-screen .titles { position: relative; min-width: 48px; }
+  #rename-open {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 2px 6px;
+    margin-inline: -6px 0;
+    font: inherit;
+    color: inherit;
+    border: 0;
+    border-radius: 6px;
+  }
+  #rename-open:disabled { opacity: 1; }
+  /* Stretches the tap target across the title and path subtitle without making the 52px header taller. */
+  #rename-open:not(:disabled)::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 50%;
+    min-height: 44px;
+    translate: 0 -50%;
+  }
+  #edit-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rename-cue { width: 14px; height: 14px; color: var(--muted); }
+  #rename-open:disabled .rename-cue { display: none; }
+  #rename-open[aria-expanded="true"] { color: var(--accent); background: var(--pressed); }
+  #rename-open[aria-expanded="true"] .rename-cue { color: var(--accent); }
   #status[data-tone="warn"] { min-width: 72px; }
   @media (max-width: 440px) {
     #edit-screen header .note-action, #edit-screen header #toc-open { width: 38px; }
   }
   @media (max-width: 380px) {
     #edit-screen header .note-action, #edit-screen header #toc-open { width: 36px; }
-    #edit-screen .titles { min-width: 0; }
+    #edit-screen .titles { min-width: 44px; }
     #status[data-tone="warn"] { min-width: 56px; }
+  }
+  @media (max-width: 350px) {
+    #edit-screen header .note-action, #edit-screen header #toc-open { width: 32px; }
+    #edit-screen #status:not([data-tone="warn"]) { display: none; }
   }
   .note-action {
     flex: none;
@@ -181,16 +214,19 @@
   }
   button:disabled { opacity: 0.6; }
   #new-file { flex: none; color: var(--accent); border-color: transparent; padding-inline: 12px; }
-  #new-create { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+  #new-create, #rename-save { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 
-  #new-form {
+  #new-form, #rename-form {
     flex: none;
     padding: 12px 16px 16px;
+    background: var(--bg);
     border-block-end: 1px solid var(--line);
   }
-  #new-form label { display: block; margin-block-end: 4px; font-size: 0.875rem; color: var(--muted); }
+  .rename-inner { max-width: 42rem; margin-inline: auto; }
+  #new-form label, #rename-form label { display: block; margin-block-end: 4px; font-size: 0.875rem; color: var(--muted); }
   .new-row { display: flex; gap: 8px; }
-  #new-name {
+  #rename-form .new-row { flex-wrap: wrap; }
+  #new-name, #rename-name {
     flex: 1;
     min-width: 0;
     min-height: 44px;
@@ -202,7 +238,8 @@
     border: 1px solid var(--muted);
     border-radius: 8px;
   }
-  #new-name::placeholder { color: var(--muted); opacity: 1; }
+  #rename-name { flex-basis: 160px; }
+  #new-name::placeholder, #rename-name::placeholder { color: var(--muted); opacity: 1; }
   #new-where-field { margin-block-end: 12px; }
   #new-where {
     width: 100%;
@@ -214,7 +251,7 @@
     border: 1px solid var(--muted);
     border-radius: 8px;
   }
-  #new-error { margin-block: 8px 0; font-size: 0.875rem; color: var(--warn); }
+  #new-error, #rename-error { margin-block: 8px 0; font-size: 0.875rem; color: var(--warn); }
 
   #list-body { flex: 1; min-height: 0; overflow-y: auto; padding-block-end: 24px; }
   .rows { margin: 0; padding-block: 4px; padding-inline: 0; list-style: none; }
@@ -262,7 +299,7 @@
     color: var(--muted);
   }
   .message { margin: 0; padding: 24px 16px; color: var(--muted); }
-  .back:active, .rows a:active, .pin:active, #new-file:active { background: var(--pressed); }
+  .back:active, .rows a:active, .pin:active, #new-file:active, #rename-open:not(:disabled):active { background: var(--pressed); }
 
   #conflict {
     flex: none;
@@ -568,13 +605,13 @@
   .toc-rows button:active { background: var(--line); }
 
   @media (hover: hover) {
-    .back:hover, .rows a:hover, .pin:hover, #new-file:hover, #toc-open:hover, .note-action:hover { background: var(--pressed); }
+    .back:hover, .rows a:hover, .pin:hover, #new-file:hover, #rename-open:not(:disabled):hover, #toc-open:hover, .note-action:hover { background: var(--pressed); }
     .toc-rows button:hover, #toc-bar button:hover { background: var(--line); }
   }
   @media (prefers-reduced-motion: no-preference) {
     button:not(:disabled), .back { transition: scale 150ms ease-out; }
     button:not(:disabled):active, .back:active { scale: 0.96; }
-    #conflict, #new-form {
+    #conflict, #new-form, #rename-form {
       transition: opacity 150ms ease-out, translate 150ms ease-out;
       @starting-style { opacity: 0; translate: 0 -4px; }
     }
@@ -627,6 +664,7 @@
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
   <symbol id="i-top" viewBox="0 0 24 24"><path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/></symbol>
   <symbol id="i-bottom" viewBox="0 0 24 24"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
 </svg>
 
@@ -666,7 +704,7 @@
   <header>
     <a id="edit-back" class="back" aria-label="Back to folder"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></a>
     <div class="titles">
-      <h1 id="edit-title" tabindex="-1"></h1>
+      <h1 id="edit-title" tabindex="-1"><button id="rename-open" type="button" aria-expanded="false" aria-controls="rename-form" disabled><span class="for-screen-readers">Rename </span><span id="edit-name"></span><svg class="icon rename-cue" aria-hidden="true"><use href="#i-pencil"/></svg></button></h1>
       <small id="edit-where" class="where"></small>
     </div>
     <span id="status" role="status"></span>
@@ -678,6 +716,16 @@
     <button id="marks-open" class="note-action" type="button" aria-label="Marks" aria-haspopup="dialog" hidden><svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg></button>
     <button id="toc-open" type="button" aria-label="Contents" aria-haspopup="dialog" hidden><svg class="icon" aria-hidden="true"><use href="#i-toc"/></svg></button>
   </header>
+  <form id="rename-form" hidden novalidate>
+    <div class="rename-inner">
+      <label for="rename-name">File name</label>
+      <div class="new-row">
+        <input id="rename-name" name="filename" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="notes.md" aria-describedby="rename-error">
+        <button id="rename-save" type="submit">Rename</button>
+      </div>
+      <p id="rename-error" hidden></p>
+    </div>
+  </form>
   <search id="search-bar" hidden>
     <input id="search-input" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Find" aria-label="Find in this note">
     <span id="search-count" role="status"></span>
@@ -696,7 +744,7 @@
   <div id="note">
     <div id="note-sheet">
       <div id="painted" aria-hidden="true"></div>
-      <textarea id="editor" aria-labelledby="edit-title" autocapitalize="sentences" spellcheck="false" disabled></textarea>
+      <textarea id="editor" aria-labelledby="edit-name" autocapitalize="sentences" spellcheck="false" disabled></textarea>
       <button id="mark-pill" type="button" hidden>Mark</button>
     </div>
   </div>
@@ -977,7 +1025,7 @@ function show(screen, title, root, parts = []) {
   $("edit-screen").hidden = screen !== "edit";
   document.title = title;
   const heading = $(screen === "list" ? "list-title" : "edit-title");
-  heading.textContent = title;
+  $(screen === "list" ? "list-title" : "edit-name").textContent = title;
   showWhere(screen === "list" ? "list-where" : "edit-where", root, parts);
   heading.focus({ preventScroll: true });
 }
@@ -1291,6 +1339,86 @@ $("new-form").addEventListener("submit", async (event) => {
   $("new-error").hidden = false;
   $("new-name").setAttribute("aria-invalid", "true");
   $("new-name").focus();
+});
+
+// ---- Renaming the open note ----
+
+function closeRenameForm() {
+  $("rename-form").hidden = true;
+  $("rename-open").setAttribute("aria-expanded", "false");
+}
+
+$("rename-open").addEventListener("click", () => {
+  if (!$("rename-form").hidden) {
+    closeRenameForm();
+    return;
+  }
+  const name = $("edit-name").textContent;
+  $("rename-name").value = name;
+  $("rename-name").removeAttribute("aria-invalid");
+  $("rename-error").hidden = true;
+  $("rename-form").hidden = false;
+  $("rename-open").setAttribute("aria-expanded", "true");
+  $("rename-name").focus();
+  // The name is selected without .md, so typing replaces just the part people change.
+  $("rename-name").setSelectionRange(0, name.replace(/\.md$/i, "").length);
+});
+
+$("rename-form").addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  closeRenameForm();
+  $("rename-open").focus();
+});
+
+$("rename-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const current = doc;
+  if (!current || current.base === null) return;
+  const [root, ...parts] = parsePath(location.pathname);
+  let problem;
+  $("rename-save").disabled = true;
+  editor.readOnly = true;
+  try {
+    // Text and marks go out under the old name first, so the PC moves them with the file and nothing is left behind.
+    await save();
+    while (current.saving) await new Promise((done) => setTimeout(done, 100));
+    await save();
+    await pushState(current);
+    keepScroll();
+    if (doc !== current) return;
+    if (current.conflict || isDirty(current) || current.stateDirty) {
+      problem = "Unable to save this note first, so it kept its name. Check your connection and try again.";
+    } else {
+      const query = `${apiQuery(root, parts.join("/"))}&name=${encodeURIComponent($("rename-name").value)}`;
+      const res = await fetch(`/api/rename?${query}`, { method: "PUT" });
+      if (doc !== current) return;
+      if (res.ok) {
+        const { name } = await res.json();
+        const href = pathFor(root, [...parts.slice(0, -1), name]);
+        if (pins.delete(current.href)) {
+          pins.add(href);
+          rememberSeen("pins", [...pins]);
+        }
+        rememberSeen(`note:${href}`, { raw: toDisk(current, current.saved), etag: current.base });
+        // Everything was saved above, so the note reopens under its new name with nothing to send for the old one.
+        doc = null;
+        history.replaceState(null, "", href);
+        currentPath = location.pathname;
+        route();
+        return;
+      }
+      problem = await res.text();
+    }
+  } catch {
+    problem = "Unable to reach the PC. Check your connection and try again.";
+  } finally {
+    $("rename-save").disabled = false;
+    if (doc === current) editor.readOnly = false;
+  }
+  $("rename-error").textContent = problem;
+  $("rename-error").hidden = false;
+  $("rename-name").setAttribute("aria-invalid", "true");
+  $("rename-name").focus();
 });
 
 // ---- Draft kept on the phone, so a dropped connection or a killed tab loses nothing ----
@@ -2886,6 +3014,8 @@ async function showFile(root, parts, fromHome) {
     scrollSent: null,
   };
   closeSearch({ moveFocus: false });
+  closeRenameForm();
+  $("rename-open").disabled = true;
   lockConflictButtons(false);
   showMarksInNote({ marks: [] });
   doc = current;
@@ -2961,6 +3091,7 @@ async function showFile(root, parts, fromHome) {
   $("marks-open").hidden = false;
   $("search-open").hidden = false;
   $("read-toggle").hidden = false;
+  $("rename-open").disabled = false;
   setStatus("Saved");
 
   const draft = readDraft(current);
@@ -3264,6 +3395,7 @@ $("use-pc").addEventListener("click", async () => {
 
 function route(fromHome = false) {
   closeSearch({ moveFocus: false });
+  closeRenameForm();
   $("toc").close();
   cancelAnimationFrame(flight);
   keepScroll();

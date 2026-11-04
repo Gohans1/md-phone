@@ -1,5 +1,5 @@
-import { mkdir, readdir, realpath, rename, unlink, writeFile } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { lstat, mkdir, readdir, realpath, rename, unlink, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const PORT = 4380;
 const INDEX = join(import.meta.dir, "index.html");
@@ -101,6 +101,13 @@ function oneAtATime<T>(key: string, work: () => Promise<T>): Promise<T> {
     if (queues.get(key) === settled) queues.delete(key);
   });
   return run;
+}
+
+function lockPaths<T>(keys: string[], work: () => Promise<T>): Promise<T> {
+  return [...new Set(keys)].sort().reduceRight<() => Promise<T>>(
+    (next, key) => () => oneAtATime(key, next),
+    work,
+  )();
 }
 
 // `stillSafe` runs right before each attempt, because writing the temporary file and waiting for a busy file take time.
@@ -215,12 +222,20 @@ async function saveFile(path: string, req: Request) {
   });
 }
 
-async function createFile(dir: string, rawName: string) {
+function cleanNoteName(rawName: string): { name: string } | { error: Response } {
   const trimmed = rawName.trim();
   const name = /\.md$/i.test(trimmed) ? trimmed : `${trimmed}.md`;
   if (!trimmed || BAD_NAME.test(name)) {
-    return status(400, 'Choose another name. Names can’t start with a dot or use < > : " / \\ | ? *');
+    return { error: status(400, 'Choose another name. Names can’t start with a dot or use < > : " / \\ | ? *') };
   }
+  if (name.length > 255) return { error: status(400, "Choose a shorter name.") };
+  return { name };
+}
+
+async function createFile(dir: string, rawName: string) {
+  const cleaned = cleanNoteName(rawName);
+  if ("error" in cleaned) return cleaned.error;
+  const { name } = cleaned;
   try {
     await writeFile(join(dir, name), "", { flag: "wx" });
   } catch (error) {
@@ -228,6 +243,96 @@ async function createFile(dir: string, rawName: string) {
     throw error;
   }
   return Response.json({ name }, { status: 201, headers: NO_STORE });
+}
+
+async function renameFile(
+  rootName: string,
+  rootDir: string,
+  target: string,
+  rawName: string,
+  pinsPath: string,
+  stateDir: string,
+) {
+  const cleaned = cleanNoteName(rawName);
+  if ("error" in cleaned) return cleaned.error;
+  const { name } = cleaned;
+  const dir = dirname(target);
+  const oldName = basename(target);
+  const dest = join(dir, name);
+  const relDir = relative(await realpath(rootDir), dir);
+  const folderParts = relDir ? relDir.split(sep) : [];
+  const oldNote = notePath(rootName, [...folderParts, oldName]);
+  const newNote = notePath(rootName, [...folderParts, name]);
+  const stateMoves = oldNote === newNote
+    ? []
+    : [...STATE_KINDS].map((kind) => ({
+        from: stateFile(stateDir, kind, oldNote),
+        to: stateFile(stateDir, kind, newNote),
+      }));
+  const lockKeys = [
+    target,
+    dest,
+    ...(oldNote === newNote ? [] : [pinsPath, ...stateMoves.flatMap(({ from, to }) => [from, to])]),
+  ];
+
+  return lockPaths(lockKeys, async () => {
+    const fromStat = await lstat(target);
+    if (!fromStat.isFile()) return status(404, "File not found.");
+
+    if (name !== oldName) {
+      const destStat = await lstat(dest).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return null;
+        throw error;
+      });
+      // Case-insensitive NTFS and WSL /mnt/c report the old file at `dest` when only letter case changes;
+      // WSL /mnt/c keeps the caller's case in `realpath`, so inode equality must be checked too.
+      const sameFile =
+        destStat !== null &&
+        destStat.isFile() &&
+        ((fromStat.ino !== 0 && fromStat.ino === destStat.ino && fromStat.dev === destStat.dev) ||
+          (await realpath(dest).catch(() => null)) === target);
+      if (destStat !== null && !sameFile) {
+        return status(409, "That name is already used here. Choose another.");
+      }
+
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await rename(target, dest);
+          break;
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code ?? "";
+          if (code === "EEXIST" || code === "ENOTEMPTY" || code === "EISDIR") {
+            return status(409, "That name is already used here. Choose another.");
+          }
+          if (!BUSY_CODES.has(code)) throw error;
+          if (attempt === 4) {
+            return status(409, "Another program on the PC has this file open. Close it there and try again.");
+          }
+          await Bun.sleep(100);
+        }
+      }
+
+      const currentPins = await readPins(pinsPath);
+      if (currentPins.includes(oldNote)) {
+        const updated = [...new Set(currentPins.map((saved) => (saved === oldNote ? newNote : saved)))];
+        await replaceFile(pinsPath, new TextEncoder().encode(JSON.stringify(updated)));
+      }
+
+      for (const { from, to } of stateMoves) {
+        changedAnswers.delete(from);
+        changedAnswers.delete(to);
+        const saved = Bun.file(from);
+        if (await saved.exists()) {
+          await replaceFile(to, await saved.bytes());
+          await unlink(from).catch(() => {});
+        } else {
+          await unlink(to).catch(() => {});
+        }
+      }
+    }
+
+    return Response.json({ name }, { headers: NO_STORE });
+  });
 }
 
 function describeRoot(name: string, dir: string) {
@@ -340,9 +445,10 @@ export function createHandler(
 
     const isList = url.pathname === "/api/list";
     const isCreate = url.pathname === "/api/create";
-    if (!isList && !isCreate && url.pathname !== "/api/file") return status(404, "Not found.");
+    const isRename = url.pathname === "/api/rename";
+    if (!isList && !isCreate && !isRename && url.pathname !== "/api/file") return status(404, "Not found.");
     // PUT, not POST: browsers must ask before sending it cross-site, and this server never agrees.
-    if (isCreate && req.method !== "PUT") return status(405, "Method not allowed.");
+    if ((isCreate || isRename) && req.method !== "PUT") return status(405, "Method not allowed.");
 
     const rootName = url.searchParams.get("root") ?? "";
     const rootDir = Object.hasOwn(allowed, rootName) ? allowed[rootName] : undefined;
@@ -357,6 +463,7 @@ export function createHandler(
       }
       if (isCreate) return await createFile(target, url.searchParams.get("name") ?? "");
       if (!/\.md$/i.test(target)) return status(403, "Only markdown files can be edited.");
+      if (isRename) return await renameFile(rootName, rootDir, target, url.searchParams.get("name") ?? "", pinsPath, stateDir);
       if (req.method === "GET") return await openFile(target, req);
       if (req.method === "PUT") return await saveFile(target, req);
       return status(405, "Method not allowed.");

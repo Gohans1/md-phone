@@ -78,6 +78,7 @@ The notes and folder paths in these screenshots are made up.
 - Keeps BOMs and Windows line endings, and refuses files that are not UTF-8
 - Pin files to the top of their folder and to a Pinned section on the home screen
 - New file from the home screen, into the folder named `desktop` in `roots.json` unless you pick another; it is pinned so it shows on the home screen
+- Rename a note by tapping its name at the top of the editor. Its pin, marks, undo steps and reading position move with it, and a name already used in that folder is refused
 - Pins, marks, undo steps, reviewed copies and reading position are shared by every device, stored in `pins.json` and `state/` next to the server. Devices merge what they changed instead of replacing each other's state. Unsaved drafts stay in the browser that typed them
 - Contents sheet built from the note's headings, with jumps to the top and bottom, showing how many bullet points and marks each heading has
 - Colored headings that are display only, so nothing is added to the file
