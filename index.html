@@ -2794,9 +2794,34 @@ let searchIndex = -1;
 let searchTimer = 0;
 let focusEditorAfterSearch = false;
 const searchIsOpen = () => !$("search-bar").hidden;
+// In Read view the search runs over the formatted text: its text nodes laid end to end, with where each one starts.
+let readingIndex = null;
+
+function indexReadingText() {
+  const nodes = [];
+  let text = "";
+  const walker = document.createTreeWalker($("read-view"), NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    nodes.push({ node, start: text.length });
+    text += node.data;
+  }
+  return { text, nodes };
+}
+
+function firstReadingOffsetOnScreen() {
+  const top = $("read-view").getBoundingClientRect().top;
+  const range = document.createRange();
+  // The line breaks between blocks are text too, but they take no room on screen.
+  const seen = readingIndex.nodes.find(({ node }) => {
+    range.selectNodeContents(node);
+    return range.getBoundingClientRect().bottom > top;
+  });
+  return seen?.start ?? 0;
+}
 
 // Matches come sorted, so one walk through the lines finds them all, instead of a walk per match.
 function buildMatchRanges(matches) {
+  if (readingIndex) return buildReadingRanges(matches);
   let line = 0;
   let start = 0;
   const pointAt = (offset, isStart = false) => {
@@ -2805,6 +2830,22 @@ function buildMatchRanges(matches) {
       line++;
     }
     return pointInLine(line, offset - start, isStart);
+  };
+  return matches.map((match) => {
+    const range = document.createRange();
+    range.setStart(...pointAt(match.start, true));
+    range.setEnd(...pointAt(match.end));
+    return range;
+  });
+}
+
+function buildReadingRanges(matches) {
+  const { nodes } = readingIndex;
+  let at = 0;
+  // A match that ends where the next text node starts ends in this one; a match that starts there starts in the next.
+  const pointAt = (offset, isStart = false) => {
+    while (at < nodes.length - 1 && (isStart ? offset >= nodes[at + 1].start : offset > nodes[at + 1].start)) at++;
+    return [nodes[at].node, offset - nodes[at].start];
   };
   return matches.map((match) => {
     const range = document.createRange();
@@ -2839,19 +2880,25 @@ function revealCurrentMatch() {
   const match = searchMatches[searchIndex];
   if (!match) return;
   const [range] = buildMatchRanges([match]);
-  const note = $("note");
+  const note = $(readingIndex ? "read-view" : "note");
   const box = note.getBoundingClientRect();
   const spot = range.getBoundingClientRect();
   cancelAnimationFrame(flight);
   if (spot.top < box.top || spot.bottom > box.bottom) note.scrollTop += spot.top - box.top - note.clientHeight / 3;
+  // A wide table or code block scrolls sideways on its own, and the match may be past its edge.
+  const side = readingIndex && range.startContainer.parentElement.closest(".table-scroll, pre");
+  if (!side) return;
+  const sideBox = side.getBoundingClientRect();
+  if (spot.left < sideBox.left || spot.right > sideBox.right) side.scrollLeft += spot.left - sideBox.left - side.clientWidth / 3;
 }
 
 function runSearch({ keepPlace = false } = {}) {
   clearTimeout(searchTimer);
   searchTimer = 0;
   const before = keepPlace ? searchMatches[searchIndex]?.start ?? 0 : null;
-  searchMatches = findMatches(editor.value, $("search-input").value);
-  const from = before ?? lineStart(topVisibleLine());
+  readingIndex = readingOpen() ? indexReadingText() : null;
+  searchMatches = findMatches(readingIndex?.text ?? editor.value, $("search-input").value);
+  const from = before ?? (readingIndex ? firstReadingOffsetOnScreen() : lineStart(topVisibleLine()));
   const next = searchMatches.findIndex((match) => match.start >= from);
   searchIndex = searchMatches.length ? Math.max(next, 0) : -1;
   showSearchState();
@@ -2913,6 +2960,8 @@ async function openReading() {
 // `remember: false` when something else needs the editor for a moment, like search or a jump.
 function closeReading({ remember = true } = {}) {
   if (!readingOpen()) return;
+  // Its matches point into the formatted text, which goes away.
+  closeSearch({ moveFocus: false });
   clearTimeout(readingTimer);
   const view = $("read-view");
   const block = [...view.querySelectorAll("[data-line]")].find((el) => el.offsetTop + el.offsetHeight > view.scrollTop);
@@ -2934,6 +2983,7 @@ function refreshReadingSoon() {
     const top = $("read-view").scrollTop;
     $("read-view").innerHTML = renderNote(editor.value);
     $("read-view").scrollTop = top;
+    if (searchIsOpen()) runSearch({ keepPlace: true });
   }, SEARCH_DELAY_MS);
 }
 
@@ -2947,7 +2997,6 @@ $("read-toggle").addEventListener("click", () => {
 
 function openSearch() {
   if (!doc?.history) return;
-  closeReading({ remember: false });
   closeChanges();
   hideMarkPill();
   if (!searchIsOpen()) focusEditorAfterSearch = document.activeElement === editor;
@@ -2968,6 +3017,7 @@ function closeSearch({ moveFocus = true } = {}) {
   const match = searchMatches[searchIndex];
   searchMatches = [];
   searchIndex = -1;
+  readingIndex = null;
   if (!moveFocus || !stillSearching) return;
   if (!focusEditorAfterSearch) {
     $("search-open").focus({ preventScroll: true });
