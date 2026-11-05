@@ -515,7 +515,7 @@
   #read-view h4 { font-size: 1rem; color: #4385BE; }
   #read-view h5 { font-size: 1rem; color: #8B7EC8; }
   #read-view h6 { font-size: 1rem; color: #CE5D97; }
-  #read-view :is(p, ul, ol, blockquote, pre, table) { margin-block: 0 1em; }
+  #read-view :is(p, ul, ol, blockquote, pre) { margin-block: 0 1em; }
   #read-view p { text-wrap: pretty; }
   #read-view :is(ul, ol) { padding-inline-start: 1.5em; }
   #read-view li + li { margin-block-start: 0.25em; }
@@ -527,8 +527,20 @@
   #read-view pre { padding: 12px 16px; overflow-x: auto; background: var(--pressed); border-radius: 8px; line-height: 1.5; }
   #read-view pre code { padding: 0; background: none; }
   #read-view hr { margin-block: 2em; border: 0; border-block-start: 1px solid var(--line); }
-  #read-view table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.95em; font-variant-numeric: tabular-nums; }
+  #read-view .table-scroll { margin-block: 0 1em; overflow-x: auto; }
+  /* A table wider than the text column grows into the side gutters, centered on the column; one that fits stays on the column. */
+  #read-view > .table-scroll {
+    --breakout: max(0px, (100vw - 42rem) / 2);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(calc(100% - 2 * var(--breakout)), auto) minmax(0, 1fr);
+    margin-inline: calc(-1 * var(--breakout));
+  }
+  #read-view > .table-scroll > table { grid-column: 2; justify-self: start; }
+  #read-view table { border-collapse: collapse; font-size: 0.95em; font-variant-numeric: tabular-nums; }
   #read-view :is(th, td) { padding: 6px 12px; text-align: start; border: 1px solid var(--line); }
+  #read-view td.long { min-width: 10em; }
+  #read-view td.longer { min-width: 18em; }
+  #read-view td a { overflow-wrap: anywhere; }
   #read-view th { font-weight: 650; background: var(--pressed); }
   #read-view img { max-width: 100%; height: auto; }
   #changes-actions {

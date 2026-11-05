@@ -18,6 +18,17 @@ describe("reading a note as formatted Markdown", () => {
     expect(html).toContain("<s>cũ</s>");
   });
 
+  it("puts each table in its own sideways scroller and marks long and very long cells", () => {
+    const long = "[TaCZ] Timeless and Classics Zero";
+    const longer = "Cảnh rừng thu lãng mạn, gió thổi lá rụng bay lượn: bộ sprite lá phong đỏ rực, lá sồi vàng, cánh hoa anh đào rơi";
+    const html = renderNote(`| Gói | Lượt | Công dụng |\n| - | - | - |\n| ${long} | 28.0M | ${longer} |\n`);
+
+    expect(html).toMatch(/^<div class="table-scroll"><table[^>]*>[\s\S]*<\/table>\n<\/div>\n$/);
+    expect(html).toContain(`<td class="long">${long}</td>`);
+    expect(html).toContain(`<td class="longer">${longer}</td>`);
+    expect(html).toContain("<td>28.0M</td>");
+  });
+
   it("shows HTML written in the note as text instead of running it", () => {
     const html = renderNote('<script>alert(1)</script>\n\n<img src=x onerror="alert(1)">\n');
 
