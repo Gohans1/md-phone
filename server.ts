@@ -6,6 +6,7 @@ const INDEX = join(import.meta.dir, "index.html");
 const CLIENT_MODULES = new Set(["/changes.js", "/headings.js", "/history.js", "/marks.js", "/reading.js", "/search.js", "/sync.js", "/vendor/diff.js", "/vendor/markdown-it.js"]);
 const FONTS = new Set(["latin", "latin-ext", "vietnamese"].map((subset) => `/vendor/fonts/inter-${subset}-wght-normal.woff2`));
 const HIDDEN_DIRS = new Set(["node_modules"]);
+const SHOWN_DOT_DIRS = new Set([".claude", ".agents"]);
 const STATE_KINDS = new Set(["note", "scroll"]);
 // Other files are only shown as plain text, and a phone gains nothing from megabytes of it.
 const RAW_MAX_BYTES = 2_000_000;
@@ -126,7 +127,7 @@ async function replaceFile(path: string, bytes: Uint8Array, stillSafe: () => Pro
         const code = (error as NodeJS.ErrnoException).code ?? "";
         if (!BUSY_CODES.has(code)) throw error;
         if (attempt === 4) {
-          // shortcut: a program in WSL holding the file open blocks replacing it from Windows for as long as it runs,
+          // Another program holding the file open on Windows blocks rename-over for as long as it runs,
           // so this writes in place: not atomic, but the phone keeps its draft until the save succeeds.
           await writeFile(path, bytes);
           return true;
@@ -164,7 +165,17 @@ async function changedSinceReview(stateDir: string, note: string, path: string) 
 }
 
 async function list(dir: string, note: (name: string) => string, stateDir: string, req: Request) {
-  const entries = await readdir(dir, { withFileTypes: true });
+  const entries = await Promise.all(
+    (await readdir(dir, { withFileTypes: true })).map(async (entry) => {
+      if (!entry.isSymbolicLink()) return entry;
+      const target = await stat(join(dir, entry.name)).catch(() => null);
+      return {
+        name: entry.name,
+        isDirectory: () => target?.isDirectory() ?? false,
+        isFile: () => target?.isFile() ?? false,
+      };
+    }),
+  );
   const names = (wanted: (entry: (typeof entries)[number]) => boolean) =>
     entries
       .filter(wanted)
@@ -174,7 +185,7 @@ async function list(dir: string, note: (name: string) => string, stateDir: strin
   const others = names((e) => e.isFile() && !/\.md$/i.test(e.name) && !e.name.startsWith("."));
   const changed = await Promise.all(files.map((name) => changedSinceReview(stateDir, note(name), join(dir, name))));
   const body = JSON.stringify({
-    dirs: names((e) => e.isDirectory() && !e.name.startsWith(".") && !HIDDEN_DIRS.has(e.name)),
+    dirs: names((e) => e.isDirectory() && (!e.name.startsWith(".") || SHOWN_DOT_DIRS.has(e.name)) && !HIDDEN_DIRS.has(e.name)),
     files,
     changed: files.filter((_, i) => changed[i]),
     others,
@@ -301,8 +312,8 @@ async function renameFile(
         if (error.code === "ENOENT") return null;
         throw error;
       });
-      // Case-insensitive NTFS and WSL /mnt/c report the old file at `dest` when only letter case changes;
-      // WSL /mnt/c keeps the caller's case in `realpath`, so inode equality must be checked too.
+      // Case-insensitive NTFS reports the old file at `dest` when only letter case changes,
+      // so inode or resolved-path equality distinguishes a case-only rename from another file.
       const sameFile =
         destStat !== null &&
         destStat.isFile() &&
@@ -350,12 +361,6 @@ async function renameFile(
 
     return Response.json({ name }, { headers: NO_STORE });
   });
-}
-
-function describeRoot(name: string, dir: string) {
-  const wsl = /^\\\\wsl(?:\.localhost|\$)\\[^\\]+(\\.*)?$/i.exec(dir);
-  if (wsl) return { name, system: "WSL", path: (wsl[1] ?? "\\").replaceAll("\\", "/") };
-  return { name, system: dir.startsWith("/") ? "Linux" : "Windows", path: dir };
 }
 
 // A pin is a note or a folder, and only the page knows which; either way it must sit in an allowed root.
@@ -455,7 +460,7 @@ export function createHandler(
     // Every other path is a folder or note the page routes itself, so opening its URL directly must work.
     if (!url.pathname.startsWith("/api/")) return serveFile(INDEX, req, PAGE_HEADERS);
     if (url.pathname === "/api/roots") {
-      return Response.json(Object.entries(allowed).map(([name, dir]) => describeRoot(name, dir)), { headers: NO_STORE });
+      return Response.json(Object.entries(allowed).map(([name, path]) => ({ name, path })), { headers: NO_STORE });
     }
 
     if (url.pathname === "/api/pins" || url.pathname === "/api/state" || url.pathname === "/api/changed") {

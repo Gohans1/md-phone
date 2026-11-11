@@ -817,12 +817,18 @@ describe("listing a folder", () => {
     await writeFile(join(root, "c.txt"), "");
     await writeFile(join(root, ".env"), "");
     await mkdir(join(root, "notes"));
+    await mkdir(join(root, ".claude"));
+    await mkdir(join(root, ".agents"));
+    await mkdir(join(root, ".claude", "skills"));
+    await symlink(join(root, ".claude", "skills"), join(root, ".agents", "skills"), "junction");
     await mkdir(join(root, ".git"));
     await mkdir(join(root, "node_modules"));
 
     const listed = await handle(new Request("http://x/api/list?root=docs&path="));
+    const agents = await handle(new Request("http://x/api/list?root=docs&path=.agents"));
 
-    expect(await listed.json()).toEqual({ dirs: ["notes"], files: ["a.MD", "b.md"], changed: [], others: ["c.txt"] });
+    expect(await listed.json()).toEqual({ dirs: [".agents", ".claude", "notes"], files: ["a.MD", "b.md"], changed: [], others: ["c.txt"] });
+    expect(await agents.json()).toEqual({ dirs: ["skills"], files: [], changed: [], others: [] });
   });
 
   it("names the roots without touching their folders", async () => {
@@ -833,23 +839,17 @@ describe("listing a folder", () => {
     expect((await listed.json()).map((root: { name: string }) => root.name)).toEqual(["gone"]);
   });
 
-  it("says which system each root is on, with the path as that system writes it", async () => {
+  it("lists each root with its configured path", async () => {
     const roots = createHandler({
       win: "C:\\Users\\me\\notes",
-      wsl: "\\\\wsl.localhost\\Ubuntu\\home\\me\\notes",
-      old: "\\\\wsl$\\Debian\\home\\me",
       nas: "\\\\server\\share\\notes",
-      linux: "/srv/notes",
     });
 
     const listed = await roots(new Request("http://x/api/roots"));
 
     expect(await listed.json()).toEqual([
-      { name: "win", system: "Windows", path: "C:\\Users\\me\\notes" },
-      { name: "wsl", system: "WSL", path: "/home/me/notes" },
-      { name: "old", system: "WSL", path: "/home/me" },
-      { name: "nas", system: "Windows", path: "\\\\server\\share\\notes" },
-      { name: "linux", system: "Linux", path: "/srv/notes" },
+      { name: "win", path: "C:\\Users\\me\\notes" },
+      { name: "nas", path: "\\\\server\\share\\notes" },
     ]);
   });
 });

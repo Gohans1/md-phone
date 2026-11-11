@@ -1,6 +1,6 @@
 # md-phone
 
-Edit the Markdown files on your Windows PC (and inside WSL) from your phone, over Tailscale.
+Edit the Markdown files on your Windows PC from your phone, over Tailscale.
 
 A small [Bun](https://bun.com) server with no runtime dependencies and one HTML page. It autosaves as you type, and if an AI agent or another program changed the file on the PC, it refuses to overwrite that change and asks you which version to keep.
 
@@ -10,7 +10,7 @@ A small [Bun](https://bun.com) server with no runtime dependencies and one HTML 
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/mobile-home.png" alt="Home screen with folders grouped by Windows and WSL, and pinned files with their full paths" width="200"></td>
+    <td><img src="docs/screenshots/mobile-home.png" alt="Home screen with allowed folders and pinned files with their full paths" width="200"></td>
     <td><img src="docs/screenshots/mobile-folder.png" alt="Folder view with subfolders and files that can be pinned" width="200"></td>
     <td><img src="docs/screenshots/mobile-editor.png" alt="A note with colored headings, two marks in the text, and a Mark button floating at the cursor" width="200"></td>
     <td><img src="docs/screenshots/mobile-contents.png" alt="Contents sheet with bullet point and mark counts for each heading" width="200"></td>
@@ -37,7 +37,7 @@ A small [Bun](https://bun.com) server with no runtime dependencies and one HTML 
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/desktop-home.png" alt="Home screen with folders grouped by Windows and WSL, and pinned files with their full paths" width="400"></td>
+    <td><img src="docs/screenshots/desktop-home.png" alt="Home screen with allowed folders and pinned files with their full paths" width="400"></td>
     <td><img src="docs/screenshots/desktop-folder.png" alt="Folder view with subfolders and files that can be pinned" width="400"></td>
   </tr>
   <tr>
@@ -72,7 +72,7 @@ The notes and folder paths in these screenshots are made up.
 
 ## Features
 
-- Browse folders you allow, grouped by Windows and WSL with their full paths, then open, edit or create `.md` files
+- Browse folders you allow with their full paths, then open, edit or create `.md` files
 - Autosave, with a draft kept on the phone if the connection drops
 - Conflict detection through `ETag` and `If-Match`
 - Keeps BOMs and Windows line endings, and refuses files that are not UTF-8
