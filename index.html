@@ -11,6 +11,7 @@
 <link rel="icon" href="data:,">
 <!-- Every module at once: otherwise vendor/diff.js waits for changes.js, one more trip to the PC before a note shows. -->
 <link rel="modulepreload" href="/changes.js">
+<link rel="modulepreload" href="/columns.js">
 <link rel="modulepreload" href="/vendor/diff.js">
 <link rel="modulepreload" href="/headings.js">
 <link rel="modulepreload" href="/history.js">
@@ -57,6 +58,16 @@
     --selection: #164F4A;
     --warn: #E8705F;
     --warn-bg: #301A12;
+    --deck-backdrop: #0A0A09;
+    --card-even: #141312;
+    --card-odd: #181716;
+    --card-edge: #2C2B29;
+    --active-row-bg: #1B2927;
+    --active-edge: #2E6B65;
+    --badge-bg: #242321;
+    --badge-text: #9F9D96;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
@@ -82,7 +93,41 @@
     outline-offset: -2px;
   }
 
-  .screen { height: 100dvh; display: flex; flex-direction: column; }
+  #app-shell { position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--deck-backdrop); }
+  #fly-layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 60; }
+  #workspace-row { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  #app-shell[data-layout="mobile-stack"] #workspace-row { overflow-x: hidden; touch-action: pan-y pinch-zoom; }
+  #app-shell[data-layout="mobile-file"] #workspace-row { overflow-x: hidden; background: var(--deck-backdrop); }
+  .col-body, #list-body, #raw-text, #note, #read-view, #changes-view { overscroll-behavior: contain; }
+  #app-shell[data-layout="mobile-stack"] .col-body,
+  #app-shell[data-layout="mobile-stack"] #list-body,
+  #app-shell[data-layout="mobile-file"] #raw-screen,
+  #app-shell[data-layout="mobile-file"] #raw-text,
+  #app-shell[data-layout="mobile-file"] #edit-screen,
+  #app-shell[data-layout="mobile-file"] #note,
+  #app-shell[data-layout="mobile-file"] #editor,
+  #app-shell[data-layout="mobile-file"] #read-view,
+  #app-shell[data-layout="mobile-file"] #changes-view { touch-action: pan-y pinch-zoom; }
+  .table-scroll, #read-view pre { touch-action: pan-x pan-y pinch-zoom; }
+  #ancestor-stack:not([hidden]), #workspace { display: contents; }
+  .screen { position: relative; flex: 1; min-width: 0; min-height: 0; align-self: stretch; display: flex; flex-direction: column; background: var(--bg); }
+  .depth-pill {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--badge-text);
+    background: var(--badge-bg);
+  }
+  .file-open-cue { display: none; }
+  .col-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .col-title-row > h1 { flex: 1; min-width: 0; }
   header {
     flex: none;
     display: flex;
@@ -498,7 +543,10 @@
   #read-view {
     position: relative;
     flex: 1;
+    width: 100%;
+    min-width: 0;
     min-height: 0;
+    container-type: inline-size;
     overflow-y: auto;
     overscroll-behavior-y: contain;
     padding: 20px max(16px, calc((100% - 42rem) / 2 + 16px)) 40vh;
@@ -530,7 +578,7 @@
   #read-view .table-scroll { margin-block: 0 1em; overflow-x: auto; }
   /* A table wider than the text column grows into the side gutters, centered on the column; one that fits stays on the column. */
   #read-view > .table-scroll {
-    --breakout: max(0px, (100vw - 42rem) / 2);
+    --breakout: max(0px, (100cqi - 42rem) / 2);
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(calc(100% - 2 * var(--breakout)), auto) minmax(0, 1fr);
     margin-inline: calc(-1 * var(--breakout));
@@ -630,17 +678,160 @@
   .toc-rows button[aria-current] { background: var(--line); }
   .toc-rows button:active { background: var(--line); }
 
-  @media (hover: hover) {
-    .back:hover, .rows a:hover, .pin:hover, #new-file:hover, #rename-open:not(:disabled):hover, #toc-open:hover, .note-action:hover { background: var(--pressed); }
+  .ancestor-col {
+    position: sticky;
+    left: var(--sticky-left, 0px);
+    flex: none;
+    width: clamp(176px, 48vw, 212px);
+    align-self: stretch;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--card-even);
+  }
+  .ancestor-col:nth-child(even) { background: var(--card-odd); }
+  [data-stepped="true"] {
+    margin-block-start: var(--step-top, 0px);
+    border-start-start-radius: 12px;
+    border-inline-start: 1px solid var(--card-edge);
+    border-block-start: 1px solid var(--card-edge);
+    box-shadow: -10px 0 24px rgb(0 0 0 / 0.52);
+    overflow: hidden;
+  }
+  #list-screen[data-stepped="true"]:not([data-as-col="true"]),
+  #edit-screen[data-stepped="true"],
+  #raw-screen[data-stepped="true"] {
+    border-inline-start-color: var(--active-edge);
+    border-block-start-color: var(--active-edge);
+  }
+  #edit-screen[data-dragging="true"],
+  #raw-screen[data-dragging="true"] {
+    border-inline-start: 1px solid var(--active-edge);
+    box-shadow: -12px 0 28px rgb(0 0 0 / 0.55);
+  }
+  #app-shell[data-layout="mobile-stack"][data-kind="folder"] #list-screen {
+    flex: 1 0 68vw;
+    min-width: 244px;
+  }
+  #app-shell[data-layout="mobile-stack"] #list-back { display: none; }
+  #app-shell[data-layout="mobile-stack"] #list-screen .titles { padding-inline-start: 8px; }
+  #app-shell[data-layout="mobile-stack"] #list-title {
+    display: block;
+    font-size: 0.9375rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #app-shell[data-layout="mobile-stack"] #show-all { width: 36px; }
+  #app-shell[data-layout="mobile-stack"] #new-file { padding-inline: 8px; font-size: 0.875rem; }
+  .col-header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    min-height: 52px;
+    padding-block: 4px;
+    padding-inline: 10px;
+    border-block-end: 1px solid var(--line);
+  }
+  .col-heading-link {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 44px;
+    padding-inline: 6px;
+    margin-inline: -6px;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 6px;
+  }
+  .col-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .col-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-block-end: 24px;
+  }
+  .ancestor-col .pin { display: none; }
+  .ancestor-col .rows a { padding-block: 10px; padding-inline: 10px 8px; gap: 7px; font-size: 0.875rem; }
+  .ancestor-col .rows .kind { width: 16px; height: 16px; }
+  .ancestor-col .rows small, #list-screen .rows small {
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ancestor-col .rows li { background: transparent; }
+  .ancestor-col .rows li.is-active, #list-screen[data-as-col="true"] .rows li.is-active {
+    z-index: 2;
+    margin-inline: 6px 0;
+    background: var(--active-row-bg);
+    border: 1px solid var(--active-edge);
+    border-inline-end: 0;
+    border-radius: 8px 0 0 8px;
+  }
+  .ancestor-col .rows li.is-active > a, #list-screen[data-as-col="true"] .rows li.is-active > a {
+    padding-inline-start: 8px;
+    color: #F2F0E5;
+    font-weight: 600;
+  }
+  .rows li.is-active .kind { color: var(--accent); fill: rgb(58 169 159 / 0.2); }
+  .rows li.is-active .chevron { color: var(--accent); translate: 2px 0; }
+  .rows li.is-active .file-open-cue { display: block; }
+
+  @media (min-width: 768px) {
+    .ancestor-col { width: 248px; }
+    .ancestor-col .pin { display: grid; width: 38px; min-height: 40px; }
+    .ancestor-col .rows a { padding-block: 11px; padding-inline: 12px 8px; gap: 10px; font-size: 0.9375rem; }
+    .ancestor-col .rows .kind { width: 18px; height: 18px; }
+    #list-screen .pin { width: 38px; min-height: 40px; }
+    #app-shell[data-kind="folder"] #list-screen { flex: 1 0 380px; }
+    #list-screen[data-as-col="true"] {
+      position: sticky;
+      left: var(--sticky-left, 0px);
+      flex: none;
+      width: 248px;
+      background: var(--card-odd);
+    }
+    #edit-screen, #raw-screen { flex: 1 0 min(720px, 56vw); }
+    #list-back, #edit-back, #raw-back { display: none; }
+    #list-screen .titles, #edit-screen .titles, #raw-screen .titles { padding-inline-start: 8px; }
+    #list-title {
+      display: block;
+      font-size: 0.9375rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #show-all { width: 36px; }
+    #new-file { padding-inline: 8px; font-size: 0.875rem; }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .ancestor-col, #list-screen[data-as-col="true"] { cursor: pointer; }
+    .back:hover, .rows li:not(.is-active) > a:hover, .pin:hover, #new-file:hover, #rename-open:not(:disabled):hover, #toc-open:hover, .note-action:hover, .col-heading-link:hover { background: var(--pressed); }
     .toc-rows button:hover, #toc-bar button:hover { background: var(--line); }
+    #toc-bar .tab:hover { color: var(--text); }
   }
   @media (prefers-reduced-motion: no-preference) {
-    button:not(:disabled), .back { transition: scale 150ms ease-out; }
+    button:not(:disabled), .back { transition: scale 150ms var(--ease-out); }
     button:not(:disabled):active, .back:active { scale: 0.96; }
     #conflict, #new-form, #rename-form {
-      transition: opacity 150ms ease-out, translate 150ms ease-out;
+      transition: opacity 150ms var(--ease-out), translate 150ms var(--ease-out);
       @starting-style { opacity: 0; translate: 0 -4px; }
     }
+    .rows .chevron { transition: translate 140ms var(--ease-out); }
     ::view-transition { pointer-events: none; }
     ::view-transition-group(root) { animation-duration: 200ms; }
     ::view-transition-old(root), ::view-transition-new(root) {
@@ -695,11 +886,20 @@
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></symbol>
 </svg>
 
-<main id="list-screen" class="screen" hidden>
+<div id="app-shell" data-kind="home" data-layout="desktop-stack">
+<div id="fly-layer" aria-hidden="true"></div>
+<div id="workspace-row">
+<nav id="ancestor-stack" aria-label="Folder trail" hidden></nav>
+<main id="workspace">
+
+<section id="list-screen" class="screen" aria-labelledby="list-title" hidden>
   <header>
     <a id="list-back" class="back" aria-label="Up one folder"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></a>
     <div class="titles">
-      <h1 id="list-title" tabindex="-1"></h1>
+      <div class="col-title-row">
+        <span id="list-depth" class="depth-pill" hidden></span>
+        <h1 id="list-title" tabindex="-1"></h1>
+      </div>
       <small id="list-where" class="where"></small>
     </div>
     <button id="show-all" class="note-action" type="button" aria-label="Show all files" aria-pressed="false" hidden><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></button>
@@ -726,25 +926,31 @@
       <ul id="pinned" class="rows"></ul>
     </section>
   </div>
-</main>
+</section>
 
-<main id="raw-screen" class="screen" hidden>
+<section id="raw-screen" class="screen" aria-labelledby="raw-title" hidden>
   <header>
     <a id="raw-back" class="back" aria-label="Back to folder"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></a>
     <div class="titles">
-      <h1 id="raw-title" tabindex="-1"></h1>
+      <div class="col-title-row">
+        <span id="raw-depth" class="depth-pill" hidden></span>
+        <h1 id="raw-title" tabindex="-1"></h1>
+      </div>
       <small id="raw-where" class="where"></small>
     </div>
   </header>
   <p id="raw-message" class="message" role="status" hidden></p>
   <pre id="raw-text" tabindex="0" aria-labelledby="raw-title"></pre>
-</main>
+</section>
 
-<main id="edit-screen" class="screen" hidden>
+<section id="edit-screen" class="screen" aria-labelledby="edit-title" hidden>
   <header>
     <a id="edit-back" class="back" aria-label="Back to folder"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></a>
     <div class="titles">
-      <h1 id="edit-title" tabindex="-1"><button id="rename-open" type="button" aria-expanded="false" aria-controls="rename-form" disabled><span class="for-screen-readers">Rename </span><span id="edit-name"></span><svg class="icon rename-cue" aria-hidden="true"><use href="#i-pencil"/></svg></button></h1>
+      <div class="col-title-row">
+        <span id="edit-depth" class="depth-pill" hidden></span>
+        <h1 id="edit-title" tabindex="-1"><button id="rename-open" type="button" aria-expanded="false" aria-controls="rename-form" disabled><span class="for-screen-readers">Rename </span><span id="edit-name"></span><svg class="icon rename-cue" aria-hidden="true"><use href="#i-pencil"/></svg></button></h1>
+      </div>
       <small id="edit-where" class="where"></small>
     </div>
     <span id="status" role="status"></span>
@@ -814,9 +1020,26 @@
       <ul id="marks-list" class="toc-rows"></ul>
     </div>
   </dialog>
+</section>
+
 </main>
+</div>
+</div>
 
 <script type="module">
+import {
+  DESKTOP_MIN_W,
+  buildTrail,
+  canBeginSwipe,
+  canScrollHorizontallyInDirection,
+  cardOffsets,
+  classifyTrailTransition,
+  layoutColumns,
+  rememberTrail,
+  resolveRowTap,
+  resolveSwipeLock,
+  swipeTargets,
+} from "/columns.js";
 import { parseHeadings } from "/headings.js";
 import { applyOwnEdit, buildHunks, lookAt, readingTime, rebuiltChanges, reviewWithSeen, undoIntoReview } from "/changes.js";
 import { createHistory, diff, hashText, record, redo, undo } from "/history.js";
@@ -879,6 +1102,13 @@ function loadRoots() {
       rootsByName = new Map(roots.map((root) => [root.name, root]));
       rememberSeen("roots", roots);
       rootsLoading = Promise.resolve(roots);
+      if (shownListKey === "/") {
+        $("message").hidden = roots.length > 0;
+        renderRootGroups(roots);
+        showHomeNewFile(roots);
+        markActiveInContainer($("list-body"), activeListHref(), "true");
+      }
+      refreshOpenAncestorCol("/");
       return roots;
     })
     .catch((error) => {
@@ -892,7 +1122,7 @@ function loadRoots() {
   return rootsLoading;
 }
 
-// The path as Windows or WSL writes it, or the folder names alone until the server has said.
+// The path as Windows writes it, or the folder names alone until the server has said.
 function fullPath(root, parts) {
   const info = rootsByName.get(root);
   if (!info) return whereText([root, ...parts]);
@@ -901,6 +1131,28 @@ function fullPath(root, parts) {
 }
 const isNoteHref = (href) => /\.md$/i.test(href);
 const apiQuery = (root, path) => `root=${encodeURIComponent(root)}&path=${encodeURIComponent(path)}`;
+const isDesktop = () => innerWidth >= DESKTOP_MIN_W;
+
+let currentTrail = buildTrail(location.pathname, location.search);
+let shownListKey = "";
+const folderListings = new Map();
+const ancestorScrollTops = new Map();
+const RECENT_TABS_KEY = "recent-right-tabs";
+const recentChildTabs = new Map(
+  (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(RECENT_TABS_KEY)) ?? [];
+    } catch {
+      return [];
+    }
+  })(),
+);
+function saveRecentTabs() {
+  try {
+    sessionStorage.setItem(RECENT_TABS_KEY, JSON.stringify([...recentChildTabs]));
+  } catch {}
+}
+const activeListHref = () => currentTrail.columns.at(-1)?.activeHref ?? null;
 
 let redrawFolder = null;
 const pins = new Set(recallSeen("pins") ?? []);
@@ -1062,13 +1314,19 @@ function showWhere(id, root, parts) {
   if (root) loadRoots().then(paint, () => {});
 }
 
-function show(screen, title, root, parts = []) {
-  for (const name of ["list", "edit", "raw"]) $(`${name}-screen`).hidden = screen !== name;
-  document.title = title;
+function show(screen, title, root, parts = [], { focusHeading = true } = {}) {
+  if (isDesktop()) {
+    $("list-screen").hidden = false;
+    $("edit-screen").hidden = screen !== "edit";
+    $("raw-screen").hidden = screen !== "raw";
+  } else {
+    for (const name of ["list", "edit", "raw"]) $(`${name}-screen`).hidden = screen !== name;
+  }
+  if (focusHeading) document.title = title;
   const heading = $(`${screen}-title`);
   $(screen === "edit" ? "edit-name" : `${screen}-title`).textContent = title;
   showWhere(`${screen}-where`, root, parts);
-  heading.focus({ preventScroll: true });
+  if (focusHeading) heading.focus({ preventScroll: true });
 }
 
 // ---- Folder view ----
@@ -1123,7 +1381,7 @@ async function refreshDots() {
   } catch {}
 }
 
-function buildRow({ href, label, isFile, isOther, pinnable = isFile, hint, changed }) {
+function buildRow({ href, label, isFile, isOther, pinnable = isFile, hint, changed, onPinFlip }) {
   const row = document.createElement("li");
   row.dataset.key = href;
   const link = document.createElement("a");
@@ -1139,13 +1397,38 @@ function buildRow({ href, label, isFile, isOther, pinnable = isFile, hint, chang
     text.append(where);
   }
   link.append(icon(isFile || isOther ? "#i-file" : "#i-folder", "kind"), text);
-  if (!isFile && !isOther) link.append(icon("#i-next", "chevron"));
+  link.append(icon("#i-next", isFile || isOther ? "chevron file-open-cue" : "chevron"));
   row.append(link);
-  if (pinnable) row.append(buildPinButton(href, hint || label));
+  if (pinnable) row.append(buildPinButton(href, hint || label, onPinFlip));
   return row;
 }
 
-function buildPinButton(href, name) {
+function scrollRowVerticallyIntoView(container, row) {
+  const rowTop = row.offsetTop - container.offsetTop;
+  const rowBottom = rowTop + row.offsetHeight;
+  if (rowTop < container.scrollTop) container.scrollTop = rowTop;
+  else if (rowBottom > container.scrollTop + container.clientHeight) {
+    container.scrollTop = rowBottom - container.clientHeight;
+  }
+}
+
+function markActiveInContainer(container, activeHref, currentKind = "true") {
+  let marked = false;
+  for (const row of container.querySelectorAll("li[data-key]")) {
+    const link = row.querySelector("a[href]");
+    const match = Boolean(activeHref) && !marked && row.dataset.key === activeHref;
+    row.classList.toggle("is-active", match);
+    if (match) {
+      marked = true;
+      link?.setAttribute("aria-current", currentKind);
+      scrollRowVerticallyIntoView(container, row);
+    } else {
+      link?.removeAttribute("aria-current");
+    }
+  }
+}
+
+function buildPinButton(href, name, onPinFlip) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "pin";
@@ -1155,7 +1438,9 @@ function buildPinButton(href, name) {
   const flip = () => {
     const pinned = togglePin(href);
     button.setAttribute("aria-pressed", String(pinned));
-    if (redrawFolder) moveRows(redrawFolder, href);
+    if (onPinFlip) onPinFlip(href);
+    else if (redrawFolder) moveRows(redrawFolder, href);
+    syncAncestorPins();
     return pinned;
   };
   button.addEventListener("click", async () => {
@@ -1215,7 +1500,7 @@ function closeNewForm() {
 async function showRoots() {
   folder = null;
   redrawFolder = null;
-  const openedAt = location.pathname;
+  shownListKey = "/";
   show("list", "MD Phone");
   $("list-back").hidden = true;
   $("show-all").hidden = true;
@@ -1225,23 +1510,28 @@ async function showRoots() {
   renderItems([], "Opening…");
   $("root-groups").replaceChildren();
   $("pinned-section").hidden = true;
+  const stillHome = () => currentTrail.columns.at(-1)?.key === "/";
   const pinsLoading = refreshPins();
   try {
     const roots = await loadRoots();
-    if (location.pathname !== openedAt) return;
+    if (!stillHome()) return;
     renderItems([], "No folders are set up. Add one to roots.json on the PC.");
     $("message").hidden = roots.length > 0;
     renderRootGroups(roots);
     showHomeNewFile(roots);
   } catch {
-    if (location.pathname !== openedAt) return;
+    if (!stillHome()) return;
     renderItems([], `Unable to reach the PC. ${OFFLINE_HELP}`);
   }
   renderPinned();
+  $("list-body").scrollTop = ancestorScrollTops.get("/") ?? 0;
+  markActiveInContainer($("list-body"), activeListHref(), "true");
   markScreenReady();
   await pinsLoading;
-  if (location.pathname !== openedAt) return;
+  if (!stillHome()) return;
   renderPinned();
+  $("list-body").scrollTop = ancestorScrollTops.get("/") ?? 0;
+  markActiveInContainer($("list-body"), activeListHref(), "true");
   refreshDots();
 }
 
@@ -1262,67 +1552,98 @@ function showHomeNewFile(roots) {
 }
 
 function renderRootGroups(roots) {
-  const systems = [...new Set(roots.map((root) => root.system))];
-  $("root-groups").replaceChildren(...systems.map((system) => {
-    const group = document.createElement("section");
-    group.setAttribute("aria-label", system);
-    const heading = document.createElement("h2");
-    heading.className = "list-heading";
-    heading.textContent = system;
-    const list = document.createElement("ul");
-    list.className = "rows";
-    list.append(...roots
-      .filter((root) => root.system === system)
-      .map(({ name, path }) => buildRow({ href: pathFor(name, []), label: name, hint: path })));
-    group.append(heading, list);
-    return group;
-  }));
+  if (!roots.length) {
+    $("root-groups").replaceChildren();
+    return;
+  }
+  const list = document.createElement("ul");
+  list.className = "rows";
+  list.append(...roots.map(({ name, path }) => buildRow({ href: pathFor(name, []), label: name, hint: path })));
+  $("root-groups").replaceChildren(list);
 }
 
-async function showFolder(root, parts) {
-  redrawFolder = null;
-  const openedAt = location.pathname;
-  show("list", parts.at(-1) ?? root, root, parts);
+async function loadFolderIntoList(root, parts, { focusHeading = true } = {}) {
+  const key = pathFor(root, parts);
+  const reuseRendered = shownListKey === key && Boolean(redrawFolder);
+  shownListKey = key;
+  if (focusHeading) {
+    show("list", parts.at(-1) ?? root, root, parts);
+  } else {
+    $("list-title").textContent = parts.at(-1) ?? root;
+    showWhere("list-where", root, parts);
+  }
   $("root-groups").replaceChildren();
   $("list-back").hidden = false;
   $("list-back").href = parts.length ? pathFor(root, parts.slice(0, -1)) : "/";
-  $("new-file").hidden = true;
   $("new-where-field").hidden = true;
   $("pinned-section").hidden = true;
   closeNewForm();
   folder = { root, parts };
+  if (reuseRendered) {
+    redrawFolder();
+    markScreenReady();
+  } else {
+    redrawFolder = null;
+    $("new-file").hidden = true;
+    const query = apiQuery(root, parts.join("/"));
+    const savedTop = ancestorScrollTops.get(key) ?? 0;
+    const shown = folderListings.get(key) ?? recallSeen(`list:${query}`);
+    if (shown) renderFolder(root, parts, shown, savedTop);
+    else renderItems([], "Opening…");
+  }
   const query = apiQuery(root, parts.join("/"));
-  const shown = recallSeen(`list:${query}`);
-  if (shown) renderFolder(root, parts, shown);
-  else renderItems([], "Opening…");
+  const savedTop = ancestorScrollTops.get(key) ?? 0;
   try {
     // Newer than any dots poll still in flight for this folder.
     folderTurn++;
     const [res] = await Promise.all([fetch(`/api/list?${query}`), refreshPins()]);
     if (!res.ok) throw new Error(await res.text());
     const listing = await res.json();
-    if (location.pathname !== openedAt) return;
+    folderListings.set(key, listing);
     rememberSeen(`list:${query}`, listing);
-    renderFolder(root, parts, listing);
+    if (currentTrail.columns.at(-1)?.key !== key) {
+      refreshOpenAncestorCol(key);
+      return;
+    }
+    renderFolder(root, parts, listing, redrawFolder ? null : savedTop);
   } catch {
-    if (location.pathname === openedAt && !shown) renderItems([], `Unable to open this folder. ${OFFLINE_HELP}`);
+    if (currentTrail.columns.at(-1)?.key === key && !redrawFolder) {
+      renderItems([], `Unable to open this folder. ${OFFLINE_HELP}`);
+    }
     markScreenReady();
   }
 }
 
-function renderFolder(root, parts, { dirs, files, changed = [], others = [] }) {
+async function showFolder(root, parts) {
+  return loadFolderIntoList(root, parts, { focusHeading: true });
+}
+
+function renderFolder(root, parts, listing, initialTop = null) {
+  const { dirs, files, changed = [], others = [] } = listing;
+  const key = pathFor(root, parts);
+  folderListings.set(key, listing);
   const hrefOf = (name) => pathFor(root, [...parts, name]);
   folderChanged = new Set(changed.map(hrefOf));
   const fileRow = (name) => ({ href: hrefOf(name), label: name, isFile: true, changed: folderChanged.has(hrefOf(name)) });
   const dirRow = (name) => ({ href: hrefOf(name), label: name, pinnable: true });
   const pinned = (name) => pins.has(hrefOf(name));
-  redrawFolder = () => renderItems([
-    ...files.filter(pinned).map(fileRow),
-    ...dirs.filter(pinned).map(dirRow),
-    ...dirs.filter((name) => !pinned(name)).map(dirRow),
-    ...files.filter((name) => !pinned(name)).map(fileRow),
-    ...(showAllFiles ? others.map((name) => ({ href: `${hrefOf(name)}?raw`, label: name, isOther: true })) : []),
-  ], "No markdown files here yet. Tap New file to add one.");
+  let restoreTop = initialTop;
+  redrawFolder = () => {
+    const activeHref = activeListHref();
+    const keepTop = restoreTop ?? $("list-body").scrollTop;
+    restoreTop = null;
+    renderItems([
+      ...files.filter(pinned).map(fileRow),
+      ...dirs.filter(pinned).map(dirRow),
+      ...dirs.filter((name) => !pinned(name)).map(dirRow),
+      ...files.filter((name) => !pinned(name)).map(fileRow),
+      ...others
+        .filter((name) => showAllFiles || `${hrefOf(name)}?raw` === activeHref)
+        .map((name) => ({ href: `${hrefOf(name)}?raw`, label: name, isOther: true })),
+    ], "No markdown files here yet. Tap New file to add one.");
+    $("list-body").scrollTop = keepTop;
+    markActiveInContainer($("list-body"), activeHref, currentTrail.content ? "page" : "true");
+  };
   $("show-all").hidden = false;
   $("new-file").hidden = false;
   redrawFolder();
@@ -1338,12 +1659,294 @@ $("show-all").addEventListener("click", () => {
   $("show-all").setAttribute("aria-pressed", String(showAllFiles));
   try { localStorage.setItem("show-all-files", showAllFiles ? "1" : "0"); } catch {}
   redrawFolder?.();
+  for (const el of $("ancestor-stack").querySelectorAll(".ancestor-col")) {
+    if (el.dataset.key && el.dataset.key !== "/") refreshOpenAncestorCol(el.dataset.key);
+  }
 });
+
+function buildDepthBadge(depth) {
+  const badge = document.createElement("span");
+  badge.className = "depth-pill";
+  badge.textContent = `L${depth}`;
+  return badge;
+}
+
+function applyCardStyle(el, depth, layout, zIndex) {
+  const { stickyLeftPx, stepTopPx } = cardOffsets(depth, layout);
+  el.style.setProperty("--sticky-left", `${stickyLeftPx}px`);
+  el.style.setProperty("--step-top", `${stepTopPx}px`);
+  el.dataset.stepped = String(depth > 0 && layout.mode !== "mobile-file");
+  el.style.zIndex = String(zIndex);
+}
+
+function clearCardStyle(el) {
+  el.style.removeProperty("--sticky-left");
+  el.style.removeProperty("--step-top");
+  delete el.dataset.stepped;
+  delete el.dataset.asCol;
+  el.style.removeProperty("z-index");
+}
+
+function scrollDeckToEnd(animate) {
+  const row = $("workspace-row");
+  const snap = () => {
+    const target = Math.max(0, row.scrollWidth - row.clientWidth);
+    if (Math.abs(row.scrollLeft - target) < 1) return;
+    if (!isDesktop()) {
+      row.scrollLeft = target;
+      return;
+    }
+    const smooth = animate && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    row.scrollTo({ left: target, behavior: smooth ? "smooth" : "instant" });
+  };
+  snap();
+  requestAnimationFrame(snap);
+}
+
+function paintAncestorHome(body, col) {
+  const roots = [...rootsByName.values()];
+  const rootList = document.createElement("ul");
+  rootList.className = "rows";
+  rootList.append(...roots.map(({ name, path }) => buildRow({ href: pathFor(name, []), label: name, hint: path })));
+  const nodes = roots.length ? [rootList] : [];
+  if (pins.size) {
+    const section = document.createElement("section");
+    const heading = document.createElement("h2");
+    heading.className = "list-heading";
+    heading.textContent = "Pinned";
+    const pinList = document.createElement("ul");
+    pinList.className = "rows";
+    const rows = [...pins]
+      .map((href) => {
+        const [root, ...parts] = parsePath(href);
+        return { href, isFile: isNoteHref(href), pinnable: true, label: parts.at(-1), hint: fullPath(root, parts), changed: changedPins.has(href), onPinFlip: () => paintAncestorHome(body, col) };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label) || a.hint.localeCompare(b.hint));
+    pinList.append(...rows.map(buildRow));
+    section.append(heading, pinList);
+    nodes.push(section);
+  }
+  body.replaceChildren(...nodes);
+  body.scrollTop = ancestorScrollTops.get(col.key) ?? 0;
+  markActiveInContainer(body, col.activeHref, "true");
+}
+
+function paintAncestorFolder(body, col, listing) {
+  const { dirs, files, changed = [], others = [] } = listing;
+  const hrefOf = (name) => pathFor(col.root, [...col.parts, name]);
+  const changedSet = new Set(changed.map(hrefOf));
+  const pinned = (name) => pins.has(hrefOf(name));
+  const onPinFlip = () => paintAncestorFolder(body, col, listing);
+  const fileRow = (name) => ({ href: hrefOf(name), label: name, isFile: true, changed: changedSet.has(hrefOf(name)), onPinFlip });
+  const dirRow = (name) => ({ href: hrefOf(name), label: name, pinnable: true, onPinFlip });
+  const rows = [
+    ...files.filter(pinned).map(fileRow),
+    ...dirs.filter(pinned).map(dirRow),
+    ...dirs.filter((name) => !pinned(name)).map(dirRow),
+    ...files.filter((name) => !pinned(name)).map(fileRow),
+    ...others
+      .filter((name) => showAllFiles || `${hrefOf(name)}?raw` === col.activeHref)
+      .map((name) => ({ href: `${hrefOf(name)}?raw`, label: name, isOther: true })),
+  ];
+  const list = document.createElement("ul");
+  list.className = "rows";
+  list.append(...rows.map(buildRow));
+  body.replaceChildren(list);
+  body.scrollTop = ancestorScrollTops.get(col.key) ?? 0;
+  markActiveInContainer(body, col.activeHref, "true");
+}
+
+function buildOrUpdateAncestorCol(col, zIndex, existing) {
+  const section = existing ?? document.createElement("section");
+  if (!existing) {
+    section.className = "ancestor-col";
+    section.dataset.key = col.key;
+    section.setAttribute("aria-label", `Level ${col.depth}: ${col.title}`);
+    const header = document.createElement("header");
+    header.className = "col-header";
+    const headingLink = document.createElement("a");
+    headingLink.className = "col-heading-link";
+    headingLink.href = col.href;
+    const titleRow = document.createElement("div");
+    titleRow.className = "col-title-row";
+    const titleEl = document.createElement("span");
+    titleEl.className = "col-title";
+    titleEl.textContent = col.title;
+    titleRow.append(buildDepthBadge(col.depth), titleEl);
+    const whereEl = document.createElement("small");
+    whereEl.className = "where";
+    if (col.root) {
+      const paintPath = () => {
+        const path = fullPath(col.root, col.parts);
+        const bdi = document.createElement("bdi");
+        bdi.textContent = path;
+        whereEl.replaceChildren(bdi);
+        whereEl.title = path;
+      };
+      paintPath();
+      loadRoots().then(paintPath, () => {});
+    }
+    headingLink.append(titleRow, whereEl);
+    header.append(headingLink);
+    const body = document.createElement("div");
+    body.className = "col-body";
+    body.addEventListener("scroll", () => ancestorScrollTops.set(col.key, body.scrollTop), { passive: true });
+    section.append(header, body);
+  }
+  section.style.zIndex = String(zIndex);
+  const body = section.querySelector(".col-body");
+  if (col.key === "/") {
+    if (!existing || !body.childElementCount) paintAncestorHome(body, col);
+    if (!rootsByName.size) {
+      Promise.all([loadRoots(), refreshPins()]).then(() => {
+        if (section.isConnected) paintAncestorHome(body, col);
+      }, () => {});
+    }
+  } else {
+    const query = apiQuery(col.root, col.parts.join("/"));
+    const known = folderListings.get(col.key) ?? recallSeen(`list:${query}`);
+    if (known && (!existing || !body.childElementCount)) paintAncestorFolder(body, col, known);
+    if (!folderListings.has(col.key)) {
+      fetch(`/api/list?${query}`, { signal: AbortSignal.timeout(READ_TIMEOUT_MS) })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((listing) => {
+          if (!listing) return;
+          folderListings.set(col.key, listing);
+          rememberSeen(`list:${query}`, listing);
+          if (section.isConnected) paintAncestorFolder(body, col, listing);
+        })
+        .catch(() => {});
+    }
+  }
+  return section;
+}
+function refreshOpenAncestorCol(key) {
+  const col = currentTrail.columns.slice(0, -1).find((item) => item.key === key);
+  const el = col && $("ancestor-stack").querySelector(`.ancestor-col[data-key="${CSS.escape(key)}"]`);
+  if (!col || !el) return;
+  const body = el.querySelector(".col-body");
+  if (key === "/") paintAncestorHome(body, col);
+  else {
+    const listing = folderListings.get(key);
+    if (listing) paintAncestorFolder(body, col, listing);
+  }
+}
+
+function syncAncestorPins() {
+  for (const el of $("ancestor-stack").querySelectorAll(".ancestor-col")) {
+    for (const button of el.querySelectorAll(".pin")) {
+      const row = button.closest("li[data-key]");
+      if (row) button.setAttribute("aria-pressed", String(pins.has(row.dataset.key)));
+    }
+  }
+  refreshOpenAncestorCol("/");
+}
+
+function renderAncestorStack(ancestors, layout) {
+  const stack = $("ancestor-stack");
+  for (const el of stack.querySelectorAll(".ancestor-col")) {
+    ancestorScrollTops.set(el.dataset.key, el.querySelector(".col-body").scrollTop);
+  }
+  if (!layout.showAncestorStack || ancestors.length === 0) {
+    stack.hidden = true;
+    stack.replaceChildren();
+    return;
+  }
+  const existingCols = new Map([...stack.querySelectorAll(".ancestor-col")].map((el) => [el.dataset.key, el]));
+  const children = ancestors.map((col, index) => {
+    const el = buildOrUpdateAncestorCol(col, index + 1, existingCols.get(col.key));
+    applyCardStyle(el, col.depth, layout, index + 1);
+    return el;
+  });
+  stack.replaceChildren(...children);
+  stack.hidden = false;
+  for (let i = 0; i < ancestors.length; i++) {
+    const col = ancestors[i];
+    const body = children[i].querySelector(".col-body");
+    body.scrollTop = ancestorScrollTops.get(col.key) ?? 0;
+    markActiveInContainer(body, col.activeHref, "true");
+  }
+}
+
+function syncTrailUI({ animateDeck = false } = {}) {
+  const layout = layoutColumns(currentTrail.columns.length, Boolean(currentTrail.content), innerWidth);
+  $("app-shell").dataset.kind = currentTrail.kind;
+  $("app-shell").dataset.layout = layout.mode;
+
+  if (layout.mode === "mobile-file") {
+    $("ancestor-stack").hidden = true;
+    $("ancestor-stack").replaceChildren();
+    $("list-screen").hidden = true;
+    clearCardStyle($("list-screen"));
+    clearCardStyle($("edit-screen"));
+    clearCardStyle($("raw-screen"));
+    $("list-depth").hidden = true;
+    $("edit-depth").hidden = true;
+    $("raw-depth").hidden = true;
+    $("list-title").removeAttribute("role");
+    $("list-title").removeAttribute("aria-level");
+    $("edit-screen").hidden = currentTrail.content?.kind !== "note";
+    $("raw-screen").hidden = currentTrail.content?.kind !== "raw";
+    $("workspace-row").scrollLeft = 0;
+    return;
+  }
+
+  const lastCol = currentTrail.columns.at(-1);
+  $("list-screen").hidden = false;
+  $("list-screen").dataset.asCol = String(Boolean(currentTrail.content));
+  applyCardStyle($("list-screen"), lastCol.depth, layout, currentTrail.columns.length);
+  $("list-depth").textContent = `L${lastCol.depth}`;
+  $("list-depth").hidden = false;
+
+  if (currentTrail.content) {
+    $("list-title").setAttribute("role", "heading");
+    $("list-title").setAttribute("aria-level", "2");
+    const isNote = currentTrail.content.kind === "note";
+    const contentEl = $(isNote ? "edit-screen" : "raw-screen");
+    const otherEl = $(isNote ? "raw-screen" : "edit-screen");
+    $("edit-screen").hidden = !isNote;
+    $("raw-screen").hidden = isNote;
+    clearCardStyle(otherEl);
+    applyCardStyle(contentEl, currentTrail.content.depth, layout, currentTrail.columns.length + 1);
+    const depthId = isNote ? "edit-depth" : "raw-depth";
+    const otherId = isNote ? "raw-depth" : "edit-depth";
+    $(depthId).textContent = `L${currentTrail.content.depth}`;
+    $(depthId).hidden = false;
+    $(otherId).hidden = true;
+    if (shownListKey !== lastCol.key) {
+      void loadFolderIntoList(lastCol.root, lastCol.parts, { focusHeading: false });
+    } else {
+      redrawFolder?.();
+    }
+  } else {
+    $("list-title").removeAttribute("role");
+    $("list-title").removeAttribute("aria-level");
+    $("edit-depth").hidden = true;
+    $("raw-depth").hidden = true;
+    $("edit-screen").hidden = true;
+    $("raw-screen").hidden = true;
+    clearCardStyle($("edit-screen"));
+    clearCardStyle($("raw-screen"));
+    if (shownListKey !== lastCol.key) {
+      if (lastCol.key === "/") void showRoots();
+      else void loadFolderIntoList(lastCol.root, lastCol.parts, { focusHeading: false });
+    } else if (lastCol.key === "/") {
+      markActiveInContainer($("list-body"), activeListHref(), "true");
+    } else {
+      redrawFolder?.();
+    }
+  }
+  renderAncestorStack(currentTrail.columns.slice(0, -1), layout);
+  scrollDeckToEnd(animateDeck);
+}
 
 // Files other than notes open read-only, as the text on disk.
 async function showRaw(root, parts) {
-  folder = null;
-  redrawFolder = null;
+  if (!isDesktop()) {
+    folder = null;
+    redrawFolder = null;
+    shownListKey = "";
+  }
   const openedAt = location.href;
   show("raw", parts.at(-1), root, parts.slice(0, -1));
   $("raw-back").href = pathFor(root, parts.slice(0, -1));
@@ -1399,6 +2002,10 @@ $("new-form").addEventListener("submit", async (event) => {
     if (res.ok) {
       const { name } = await res.json();
       const href = pathFor(root, [...parts, name]);
+      const folderKey = pathFor(root, parts);
+      folderListings.delete(folderKey);
+      try { localStorage.removeItem(`seen:list:${apiQuery(root, parts.join("/"))}`); } catch {}
+      if (shownListKey === folderKey) shownListKey = "";
       // Pinned, or a note made from the home screen would only be found by opening its folder.
       if (fromHome && !pins.has(href)) {
         togglePin(href);
@@ -1484,11 +2091,20 @@ $("rename-form").addEventListener("submit", async (event) => {
           pins.add(href);
           rememberSeen("pins", [...pins]);
         }
+        const parentParts = parts.slice(0, -1);
+        const parentKey = pathFor(root, parentParts);
+        for (const [colKey, savedHref] of recentChildTabs) {
+          if (savedHref === current.href) recentChildTabs.set(colKey, href);
+        }
+        saveRecentTabs();
+        folderListings.delete(parentKey);
+        try { localStorage.removeItem(`seen:list:${apiQuery(root, parentParts.join("/"))}`); } catch {}
+        if (shownListKey === parentKey) shownListKey = "";
         rememberSeen(`note:${href}`, { raw: toDisk(current, current.saved), etag: current.base });
         // Everything was saved above, so the note reopens under its new name with nothing to send for the old one.
         doc = null;
         history.replaceState(null, "", href);
-        currentPath = location.pathname;
+        currentPath = `${location.pathname}${location.search}`;
         route();
         return;
       }
@@ -1623,11 +2239,24 @@ let noteScrollBeforeChanges = 0;
 const changesOpen = () => !$("changes-view").hidden;
 
 function showChangesHint() {
+  const changed = hasChanges(doc);
   // Hiding the button that has focus would drop a keyboard user's place to the page itself.
-  if (!hasChanges(doc) && document.activeElement === $("changes-open")) $("edit-title").focus({ preventScroll: true });
-  $("changes-open").hidden = !hasChanges(doc);
+  if (!changed && document.activeElement === $("changes-open")) $("edit-title").focus({ preventScroll: true });
+  $("changes-open").hidden = !changed;
+  if (doc?.stateLoaded) {
+    if (changed) {
+      folderChanged.add(doc.href);
+      if (pins.has(doc.href)) changedPins.add(doc.href);
+    } else {
+      folderChanged.delete(doc.href);
+      changedPins.delete(doc.href);
+    }
+    showDots($("items"), folderChanged);
+    showDots($("pinned"), changedPins);
+    refreshOpenAncestorCol("/");
+  }
   if (!changesOpen()) return;
-  if (hasChanges(doc)) renderChanges();
+  if (changed) renderChanges();
   else closeChanges();
 }
 
@@ -3164,10 +3793,16 @@ async function showFile(root, parts, fromHome) {
   // Failures are handled where these are awaited; this only stops the browser reporting them as unhandled first.
   fileRequest.catch(() => {});
   stateRequest.catch(() => {});
+  if (!isDesktop()) {
+    folder = null;
+    redrawFolder = null;
+    shownListKey = "";
+  }
   setEditorText(cached ? fromDisk(cached.raw) : "");
   show("edit", parts.at(-1), root, parts.slice(0, -1));
-  $("edit-back").href = fromHome ? "/" : pathFor(root, parts.slice(0, -1));
-  $("edit-back").setAttribute("aria-label", fromHome ? "Back to home" : "Back to folder");
+  const backToHome = fromHome && !isDesktop();
+  $("edit-back").href = backToHome ? "/" : pathFor(root, parts.slice(0, -1));
+  $("edit-back").setAttribute("aria-label", backToHome ? "Back to home" : "Back to folder");
   $("conflict").hidden = true;
   showEditMessage("");
   editor.readOnly = false;
@@ -3533,7 +4168,125 @@ $("use-pc").addEventListener("click", async () => {
 
 // ---- Routing ----
 
-function route(fromHome = false) {
+const flyRoot = $("fly-layer").attachShadow({ mode: "open" });
+const flyShell = document.createElement("div");
+flyShell.id = "app-shell";
+flyShell.style.cssText = "position:fixed;inset:0;pointer-events:none;background:transparent;";
+flyRoot.append(
+  document.querySelector("style").cloneNode(true),
+  document.querySelector("svg[hidden]").cloneNode(true),
+  flyShell,
+);
+
+function spawnCloseGhosts(prevTrail, nextTrail, transition) {
+  const ancEls = [...$("ancestor-stack").querySelectorAll(".ancestor-col")];
+  const targetIdx = transition.keepColumnCount - 1;
+  const targetEl =
+    targetIdx >= 0 && targetIdx < ancEls.length
+      ? ancEls[targetIdx]
+      : !$("list-screen").hidden && nextTrail.columns.length === prevTrail.columns.length
+        ? $("list-screen")
+        : null;
+  const oldTargetLeft = targetEl ? targetEl.getBoundingClientRect().left : null;
+
+  const outgoing = [];
+  for (let i = transition.keepColumnCount; i < ancEls.length; i++) outgoing.push(ancEls[i]);
+  if (nextTrail.columns.length < prevTrail.columns.length && !$("list-screen").hidden) {
+    outgoing.push($("list-screen"));
+  }
+  if (transition.closingContent) {
+    const contentEl = prevTrail.content?.kind === "raw" ? $("raw-screen") : $("edit-screen");
+    if (contentEl && !contentEl.hidden) outgoing.push(contentEl);
+  }
+
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  flyShell.dataset.layout = $("app-shell").dataset.layout;
+  flyShell.dataset.kind = $("app-shell").dataset.kind;
+  let shownIdx = 0;
+  for (const el of outgoing) {
+    const rect = el.getBoundingClientRect();
+    el.style.transform = "";
+    delete el.dataset.dragging;
+    if (rect.width <= 0 || rect.right <= 0 || rect.left >= innerWidth) continue;
+    const scrollSelector = ".col-body, #list-body, #note, #raw-text, #read-view, #changes-view";
+    const srcScrollers = [...el.querySelectorAll(scrollSelector)];
+    const scrollTops = srcScrollers.map((node) => node.scrollTop);
+    const ghost = el.cloneNode(true);
+    for (const node of ghost.querySelectorAll("dialog, [popover], textarea")) node.remove();
+    const dstScrollers = [...ghost.querySelectorAll(scrollSelector)];
+    const edgeCss =
+      ghost.dataset.stepped === "true"
+        ? ""
+        : "border-inline-start:1px solid var(--active-edge);box-shadow:-12px 0 28px rgb(0 0 0 / 0.55);";
+    ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;margin:0;flex:none;z-index:${60 + shownIdx};background:${getComputedStyle(el).backgroundColor};${edgeCss}`;
+    flyShell.append(ghost);
+    dstScrollers.forEach((node, i) => {
+      node.scrollTop = scrollTops[i] ?? 0;
+    });
+    const flyX = innerWidth - rect.left + 40;
+    const anim = reduced
+      ? ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: "ease-out", fill: "forwards" })
+      : ghost.animate(
+          [
+            { transform: "translate3d(0, 0, 0)", opacity: 1 },
+            { transform: `translate3d(${flyX}px, 0, 0)`, opacity: 1 },
+          ],
+          {
+            duration: 210,
+            delay: Math.min(shownIdx * 22, 66),
+            easing: "cubic-bezier(0.32, 0.72, 0, 1)",
+            fill: "forwards",
+          },
+        );
+    shownIdx++;
+    const cleanup = () => ghost.remove();
+    anim.finished.then(cleanup, cleanup);
+    setTimeout(cleanup, 360);
+  }
+  return oldTargetLeft;
+}
+
+function animateSettledDeck(nextTrail, transition, oldTargetLeft) {
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const entered = nextTrail.content
+    ? $(nextTrail.content.kind === "note" ? "edit-screen" : "raw-screen")
+    : $("list-screen");
+  if (!entered || entered.hidden) return;
+  for (const anim of entered.getAnimations()) anim.cancel();
+
+  if (transition.kind === "close-right") {
+    if (!reduced && oldTargetLeft !== null && !$("list-screen").hidden) {
+      const newLeft = $("list-screen").getBoundingClientRect().left;
+      const dx = oldTargetLeft - newLeft;
+      if (Math.abs(dx) > 2) {
+        $("list-screen").animate(
+          [{ transform: `translate3d(${dx}px, 0, 0)` }, { transform: "translate3d(0, 0, 0)" }],
+          { duration: 210, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+        );
+      }
+    }
+    return;
+  }
+
+  if (transition.kind === "open-right") {
+    if (reduced) {
+      entered.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: "ease-out" });
+    } else {
+      entered.animate(
+        [
+          { transform: "translate3d(34%, 0, 0)", opacity: 0 },
+          { transform: "translate3d(0, 0, 0)", opacity: 1 },
+        ],
+        { duration: 200, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+      );
+    }
+  }
+}
+
+function route(fromHome = false, { animateDeck = false } = {}) {
+  if (shownListKey && !$("list-screen").hidden) {
+    ancestorScrollTops.set(shownListKey, $("list-body").scrollTop);
+  }
   closeSearch({ moveFocus: false });
   closeRenameForm();
   $("toc").close();
@@ -3551,46 +4304,276 @@ function route(fromHome = false) {
   // Not awaited: save() takes the note and its text before its first await, and the draft is kept by now.
   save();
   doc = null;
-  const [root, ...rest] = parsePath(location.pathname);
-  if (!root) return showRoots();
-  if (new URLSearchParams(location.search).has("raw")) return showRaw(root, rest);
-  if (/\.md$/i.test(rest.at(-1) ?? "")) return showFile(root, rest, fromHome);
-  return showFolder(root, rest);
+  currentTrail = buildTrail(location.pathname, location.search);
+  rememberTrail(recentChildTabs, currentTrail, { fromHome: fromHome && !isDesktop() });
+  saveRecentTabs();
+  let work;
+  if (currentTrail.kind === "home") {
+    work = showRoots();
+  } else if (currentTrail.kind === "raw") {
+    work = showRaw(currentTrail.content.root, currentTrail.content.parts);
+  } else if (currentTrail.kind === "note") {
+    work = showFile(currentTrail.content.root, currentTrail.content.parts, fromHome);
+  } else {
+    const lastCol = currentTrail.columns.at(-1);
+    work = showFolder(lastCol.root, lastCol.parts);
+  }
+  syncTrailUI({ animateDeck });
+  return work;
 }
 
 // Links saved before URLs became real paths look like /#/folder/note.md.
 if (location.hash.startsWith("#/")) history.replaceState(null, "", location.hash.slice(1));
 
-let currentPath = location.pathname;
+let currentPath = `${location.pathname}${location.search}`;
 
-function changeRoute(browserAnimatesIt) {
-  const from = parsePath(currentPath).length;
+function changeRoute(browserAnimatesIt, { animate = true, fromSwipe = false } = {}) {
+  const from = parsePath(currentPath.split("?")[0]).length;
   const to = parsePath(location.pathname).length;
-  currentPath = location.pathname;
+  currentPath = `${location.pathname}${location.search}`;
   // A pinned file opened from home goes back to home, not up through its folders.
   const fromHome = from === 0;
-  if (!document.startViewTransition || browserAnimatesIt || matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    route(fromHome);
+  const prevTrail = currentTrail;
+  const nextTrail = buildTrail(location.pathname, location.search);
+  const transition = classifyTrailTransition(prevTrail, nextTrail);
+  const shouldAnimate = animate && !browserAnimatesIt && transition.kind !== "none";
+  const fullFileTransition =
+    shouldAnimate &&
+    !fromSwipe &&
+    !isDesktop() &&
+    Boolean(prevTrail.content || nextTrail.content);
+
+  if (!fullFileTransition || !document.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const oldTargetLeft =
+      shouldAnimate && transition.kind === "close-right"
+        ? spawnCloseGhosts(prevTrail, nextTrail, transition)
+        : null;
+    route(fromHome, { animateDeck: shouldAnimate });
+    if (shouldAnimate) animateSettledDeck(nextTrail, transition, oldTargetLeft);
     return;
   }
   // The slide waits for the next screen's content, but never long enough to feel stuck on a slow connection.
   const ready = new Promise((done) => (markScreenReady = done));
   const update = () => Promise.race([route(fromHome), ready, new Promise((done) => setTimeout(done, CONTENT_WAIT_MS))]);
-  document.startViewTransition({ update, types: [to < from ? "back" : "forward"] });
+  document.startViewTransition({ update, types: [to < from || !nextTrail.content ? "back" : "forward"] });
 }
 
-function navigate(path) {
-  if (path === location.pathname) return;
+function navigate(path, options = {}) {
+  if (path === `${location.pathname}${location.search}`) return;
   history.pushState(null, "", path);
-  changeRoute(false);
+  changeRoute(false, options);
 }
+
+let suppressClickUntil = 0;
+document.addEventListener(
+  "click",
+  (event) => {
+    if (performance.now() < suppressClickUntil) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  },
+  true,
+);
 
 document.addEventListener("click", (event) => {
-  const link = event.target.closest("a[href]");
-  if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  event.preventDefault();
-  navigate(link.getAttribute("href"));
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  // Never animate keyboard-synthesized Enter clicks (detail === 0).
+  const animate = event.detail !== 0;
+  const link = target.closest("a[href]");
+  if (link) {
+    if (link.target) return;
+    event.preventDefault();
+    const activeRow = link.closest(".rows li.is-active");
+    const colKey = activeRow
+      ? (activeRow.closest(".ancestor-col")?.dataset.key ?? (activeRow.closest("#list-screen") ? currentTrail.columns.at(-1)?.key : null))
+      : null;
+    const href = link.getAttribute("href");
+    navigate(colKey ? resolveRowTap(currentTrail, colKey, href) : href, { animate });
+    return;
+  }
+  if (target.closest("button, input, textarea, select, label, form, dialog")) return;
+  const ancCol = target.closest(".ancestor-col");
+  if (ancCol?.dataset.key) {
+    navigate(ancCol.dataset.key, { animate });
+    return;
+  }
+  const asColList = target.closest('#list-screen[data-as-col="true"]');
+  if (asColList && currentTrail.columns.at(-1)?.href) {
+    navigate(currentTrail.columns.at(-1).href, { animate });
+  }
 });
+
+const hasActiveTextSelection = () =>
+  Boolean(window.getSelection()?.toString()) ||
+  (document.activeElement === editor && editor.selectionStart !== editor.selectionEnd);
+
+function hasScrollableAncestorX(startEl, stopEl, dx) {
+  for (let el = startEl; el && el !== stopEl && el !== document.body; el = el.parentElement) {
+    if (el.scrollWidth <= el.clientWidth + 1) continue;
+    const ox = getComputedStyle(el).overflowX;
+    if ((ox === "auto" || ox === "scroll") && canScrollHorizontallyInDirection(el, dx)) return true;
+  }
+  return false;
+}
+
+let swipe = null;
+$("app-shell").addEventListener("pointerdown", (event) => {
+  if (swipe !== null) return;
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  if (
+    !canBeginSwipe({
+      pointerType: event.pointerType,
+      isDesktop: isDesktop(),
+      button: event.button,
+      inFormControl: Boolean(target.closest("input, select, dialog")),
+      dialogOpen: $("toc").open,
+      hasSelection: hasActiveTextSelection(),
+    })
+  ) {
+    return;
+  }
+  const dragEl = currentTrail.content
+    ? $(currentTrail.content.kind === "note" ? "edit-screen" : "raw-screen")
+    : $("list-screen");
+  if (!dragEl || dragEl.hidden) return;
+  const { closeRightHref, openRightHref } = swipeTargets(currentTrail, recentChildTabs, {
+    editBackHref: currentTrail.kind === "note" ? $("edit-back").getAttribute("href") : null,
+  });
+  swipe = {
+    pointerId: event.pointerId,
+    target,
+    startX: event.clientX,
+    startY: event.clientY,
+    startAt: performance.now(),
+    lastX: event.clientX,
+    locked: false,
+    wasEditorFocused: document.activeElement === editor,
+    dragEl,
+    closeRightHref,
+    openRightHref,
+    cardWidth: dragEl.getBoundingClientRect().width || innerWidth,
+  };
+});
+
+window.addEventListener("pointermove", (event) => {
+  if (!swipe || event.pointerId !== swipe.pointerId) return;
+  const dx = event.clientX - swipe.startX;
+  const dy = event.clientY - swipe.startY;
+  if (!swipe.locked) {
+    const decision = resolveSwipeLock({
+      dx,
+      dy,
+      pointerType: event.pointerType,
+      elapsedMs: performance.now() - swipe.startAt,
+      hasSelection: hasActiveTextSelection(),
+      canScrollX: hasScrollableAncestorX(swipe.target, swipe.dragEl, dx),
+    });
+    if (decision === "wait") return;
+    if (decision === "cancel") {
+      swipe = null;
+      return;
+    }
+    swipe.locked = true;
+    hideMarkPill();
+    if (!swipe.wasEditorFocused && document.activeElement === editor) editor.blur();
+    swipe.dragEl.dataset.dragging = "true";
+    for (const anim of swipe.dragEl.getAnimations()) anim.cancel();
+    try {
+      swipe.dragEl.setPointerCapture(event.pointerId);
+    } catch {}
+  }
+  swipe.lastX = event.clientX;
+  let tx;
+  if (dx > 0) {
+    tx = swipe.closeRightHref ? dx : 26 * Math.tanh(dx / 110);
+  } else {
+    tx = swipe.openRightHref ? 44 * Math.tanh(dx / 130) : 20 * Math.tanh(dx / 110);
+  }
+  swipe.dragEl.style.transform = `translate3d(${tx}px, 0, 0)`;
+});
+
+function endSwipe(event, cancelled) {
+  if (!swipe || event.pointerId !== swipe.pointerId) return;
+  const s = swipe;
+  swipe = null;
+  if (!s.locked) return;
+  suppressClickUntil = performance.now() + 260;
+  const dx = s.lastX - s.startX;
+  const elapsed = Math.max(1, performance.now() - s.startAt);
+  const velocity = Math.abs(dx) / elapsed;
+  const distThreshold = Math.min(76, s.cardWidth * 0.24);
+  const triggered = !cancelled && (Math.abs(dx) >= distThreshold || (Math.abs(dx) >= 18 && velocity >= 0.22));
+
+  if (triggered && dx > 0 && s.closeRightHref) {
+    if (document.activeElement === editor) editor.blur();
+    navigate(s.closeRightHref, { animate: true, fromSwipe: true });
+    delete s.dragEl.dataset.dragging;
+    return;
+  }
+  const fromTransform = s.dragEl.style.transform || "translate3d(0, 0, 0)";
+  s.dragEl.style.transform = "";
+  if (triggered && dx < 0 && s.openRightHref) {
+    delete s.dragEl.dataset.dragging;
+    navigate(s.openRightHref, { animate: true, fromSwipe: true });
+    return;
+  }
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const snap = s.dragEl.animate(
+      [{ transform: fromTransform }, { transform: "translate3d(0, 0, 0)" }],
+      { duration: 180, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+    );
+    const clearDrag = () => delete s.dragEl.dataset.dragging;
+    snap.finished.then(clearDrag, clearDrag);
+  } else {
+    delete s.dragEl.dataset.dragging;
+  }
+}
+
+window.addEventListener("pointerup", (event) => endSwipe(event, false));
+window.addEventListener("pointercancel", (event) => endSwipe(event, true));
+
+let lastLayoutMode = "";
+window.addEventListener("resize", () => {
+  const layout = layoutColumns(currentTrail.columns.length, Boolean(currentTrail.content), innerWidth);
+  if (layout.mode === lastLayoutMode) return;
+  lastLayoutMode = layout.mode;
+  syncTrailUI();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || target.matches("input, textarea, select")) return;
+  const inColumns = target.closest("#ancestor-stack, #list-screen");
+  if (!inColumns) return;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    const colEl = target.closest(".ancestor-col, #list-screen");
+    if (!colEl) return;
+    const links = [...colEl.querySelectorAll(".rows a[href]")];
+    const idx = links.indexOf(target.closest("a[href]"));
+    if (idx === -1) return;
+    event.preventDefault();
+    const next = links[Math.max(0, Math.min(links.length - 1, idx + (event.key === "ArrowDown" ? 1 : -1)))];
+    next?.focus();
+    return;
+  }
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    const units = [...$("ancestor-stack").children, $("list-screen")].filter((el) => !el.hidden);
+    const unit = target.closest(".ancestor-col, #list-screen");
+    const idx = units.indexOf(unit);
+    if (idx === -1) return;
+    const nextUnit = units[idx + (event.key === "ArrowRight" ? 1 : -1)];
+    if (!nextUnit) return;
+    event.preventDefault();
+    const targetLink = nextUnit.querySelector(".rows a[aria-current], .rows a[href], .col-heading-link");
+    targetLink?.focus();
+  }
+});
+
 // Android's back gesture draws its own animation, and a second one on top would look broken.
 window.addEventListener("popstate", (event) => changeRoute(event.hasUAVisualTransition));
 document.addEventListener("visibilitychange", () => {

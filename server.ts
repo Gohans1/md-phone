@@ -3,7 +3,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 
 const PORT = 4380;
 const INDEX = join(import.meta.dir, "index.html");
-const CLIENT_MODULES = new Set(["/changes.js", "/headings.js", "/history.js", "/marks.js", "/reading.js", "/search.js", "/sync.js", "/vendor/diff.js", "/vendor/markdown-it.js"]);
+const CLIENT_MODULES = new Set(["/changes.js", "/columns.js", "/headings.js", "/history.js", "/marks.js", "/reading.js", "/search.js", "/sync.js", "/vendor/diff.js", "/vendor/markdown-it.js"]);
 const FONTS = new Set(["latin", "latin-ext", "vietnamese"].map((subset) => `/vendor/fonts/inter-${subset}-wght-normal.woff2`));
 const HIDDEN_DIRS = new Set(["node_modules"]);
 const SHOWN_DOT_DIRS = new Set([".claude", ".agents"]);

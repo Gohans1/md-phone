@@ -852,6 +852,14 @@ describe("listing a folder", () => {
       { name: "nas", path: "\\\\server\\share\\notes" },
     ]);
   });
+
+  it("serves /columns.js as a JavaScript module instead of the HTML shell", async () => {
+    const moduleRes = await handle(new Request("http://localhost:4380/columns.js"));
+
+    expect(moduleRes.status).toBe(200);
+    expect(moduleRes.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(await moduleRes.text()).toContain("export function buildTrail");
+  });
 });
 
 describe("telling which notes someone else changed", () => {
